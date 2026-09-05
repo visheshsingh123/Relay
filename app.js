@@ -167,12 +167,7 @@
   function renderChatHeader(conv) {
     chatNameEl.textContent = conv.name;
     chatAvatarEl.textContent = conv.initials;
-    const statusText = conv.online ? "Active now" : "Offline";
-    chatStatusEl.innerHTML = `
-      <span class="chat__handle">@${escapeHtml(conv.username)}</span>
-      <span class="chat__status-sep" aria-hidden="true">·</span>
-      ${conv.online ? '<span class="status-dot" aria-hidden="true"></span> ' : ""}${statusText}
-    `;
+    chatStatusEl.innerHTML = `<span class="chat__handle">@${escapeHtml(conv.username)}</span>`;
   }
 
   /* ---------------------------------------------------------------------
