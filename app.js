@@ -1,47 +1,27 @@
 /* ==========================================================================
    Relay — App Logic
-   Vanilla JS: conversation state, rendering, responsive navigation,
-   and a local demo of sending messages. Built to be swapped for
-   Supabase Auth / Realtime / Storage calls later.
+   Real-time chat powered by Firebase Firestore
    ========================================================================== */
 
 import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
-import { doc, getDoc, setDoc, collection, query, where, limit, getDocs } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+import { 
+  doc, getDoc, setDoc, updateDoc, collection, query, where, limit, getDocs, 
+  onSnapshot, addDoc, serverTimestamp, orderBy 
+} from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 (() => {
   "use strict";
 
   let firebaseUser = null;
   let firebaseProfile = null;
-
-  /* ---------------------------------------------------------------------
-     Demo data — replace with a Supabase fetch later
-     --------------------------------------------------------------------- */
-  const conversations = [
-    {
-      id: "c1",
-      name: "John Doe",
-      username: "johndoe",
-      initials: "JD",
-      online: true,
-      unread: 2,
-      messages: [
-        { from: "them", text: "Hey! Did you get a chance to look at the deck?", time: "10:12 AM" },
-        { from: "them", text: "No rush, just checking in before the call.", time: "10:13 AM" },
-        { from: "me", text: "Just opened it now, looks great so far.", time: "10:20 AM", read: true },
-        { from: "me", text: "Sending a couple of comments in a sec.", time: "10:21 AM", read: true },
-        { from: "them", text: "Sounds good, appreciate it.", time: "10:22 AM" },
-        { from: "them", text: "Let's sync at 3?", time: "10:42 AM" },
-      ],
-    },
-  ];
-
-  // The signed-in person. In a real build this comes from the auth session
-  // (e.g. Supabase's profiles table), populated at login/signup.
-  const currentUser = { name: "Vivian Serrano", username: "vivian", initials: "VS" };
-
-  let activeId = conversations[0].id;
+  
+  let chats = []; // Store active chats for sidebar
+  let currentMessages = []; // Store messages for active chat
+  
+  let activeChatId = null;
+  let activeChatUser = null; // Store the "other" user's info for header
+  let messagesUnsubscribe = null;
 
   /* ---------------------------------------------------------------------
      Element refs
@@ -72,24 +52,31 @@ import { doc, getDoc, setDoc, collection, query, where, limit, getDocs } from "h
   const onboardingUsername = document.getElementById("onboardingUsername");
   const onboardingUsernameError = document.getElementById("onboardingUsernameError");
   const onboardingUsernameSubmit = document.getElementById("onboardingUsernameSubmit");
+  const myProfileBtn = document.getElementById("myProfileBtn");
+  const myAvatarInitials = document.getElementById("myAvatarInitials");
 
   const MOBILE_QUERY = window.matchMedia("(max-width: 767px)");
 
   /* ---------------------------------------------------------------------
      Helpers
      --------------------------------------------------------------------- */
-  function getConversation(id) {
-    return conversations.find((c) => c.id === id);
-  }
-
-  function lastMessage(conv) {
-    return conv.messages[conv.messages.length - 1] || null;
-  }
-
   function escapeHtml(str) {
     const div = document.createElement("div");
     div.textContent = str;
     return div.innerHTML;
+  }
+  
+  function getInitials(name) {
+    if (!name) return "??";
+    const parts = name.trim().split(" ").filter(Boolean);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  }
+
+  function createChatId(uid1, uid2) {
+    return [uid1, uid2].sort().join("_");
   }
 
   /* ---------------------------------------------------------------------
@@ -99,46 +86,50 @@ import { doc, getDoc, setDoc, collection, query, where, limit, getDocs } from "h
     const query = filter.trim().toLowerCase();
     convListEl.innerHTML = "";
 
-    conversations
+    chats
       .filter((c) => {
         const q = query.replace(/^@/, "");
-        return c.name.toLowerCase().includes(query) || c.username.toLowerCase().includes(q);
+        const otherUser = c.users[c.otherUid];
+        if (!otherUser) return false;
+        return otherUser.name.toLowerCase().includes(query) || otherUser.username.toLowerCase().includes(q);
       })
       .forEach((conv) => {
-        const last = lastMessage(conv);
+        const otherUser = conv.users[conv.otherUid];
         const item = document.createElement("button");
         item.type = "button";
         item.className = "conv-item";
         item.dataset.id = conv.id;
-        if (conv.id === activeId) item.classList.add("is-active");
-        if (conv.unread > 0) item.classList.add("has-unread");
-        item.setAttribute(
-          "aria-label",
-          `Open conversation with ${conv.name}${conv.unread ? `, ${conv.unread} unread` : ""}`
-        );
+        if (conv.id === activeChatId) item.classList.add("is-active");
+        
+        // TODO: proper unread logic later
+        // if (conv.unread > 0) item.classList.add("has-unread");
+        
+        item.setAttribute("aria-label", `Open conversation with ${otherUser.name}`);
 
-        const previewText = last
-          ? `${last.from === "me" ? "You: " : ""}${escapeHtml(last.text)}`
-          : "No messages yet";
+        const lastText = conv.lastMessage || "No messages yet";
+        
+        let timeStr = "";
+        if (conv.updatedAt) {
+          const date = conv.updatedAt.toDate ? conv.updatedAt.toDate() : new Date(conv.updatedAt);
+          timeStr = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+        }
 
         item.innerHTML = `
           <span class="avatar-wrap">
-            <span class="avatar avatar--sm">${conv.initials}</span>
-            ${conv.online ? '<span class="presence-dot" aria-hidden="true"></span>' : ""}
+            <span class="avatar avatar--sm">${getInitials(otherUser.name)}</span>
           </span>
           <span class="conv-item__body">
             <span class="conv-item__top">
-              <span class="conv-item__name">${escapeHtml(conv.name)}</span>
-              <span class="conv-item__time">${last ? last.time : ""}</span>
+              <span class="conv-item__name">${escapeHtml(otherUser.name)}</span>
+              <span class="conv-item__time">${timeStr}</span>
             </span>
             <span class="conv-item__preview-row">
-              <span class="conv-item__preview">${previewText}</span>
-              ${conv.unread > 0 ? `<span class="unread-badge">${conv.unread}</span>` : ""}
+              <span class="conv-item__preview">${escapeHtml(lastText)}</span>
             </span>
           </span>
         `;
 
-        item.addEventListener("click", () => selectConversation(conv.id));
+        item.addEventListener("click", () => selectConversation(conv.id, otherUser));
         convListEl.appendChild(item);
       });
   }
@@ -146,26 +137,33 @@ import { doc, getDoc, setDoc, collection, query, where, limit, getDocs } from "h
   /* ---------------------------------------------------------------------
      Render: message thread
      --------------------------------------------------------------------- */
-  function renderThread(conv) {
+  function renderThread() {
     threadEl.innerHTML = "";
 
-    conv.messages.forEach((msg, i) => {
-      const prev = conv.messages[i - 1];
-      const next = conv.messages[i + 1];
-      const sameAsPrev = prev && prev.from === msg.from;
-      const sameAsNext = next && next.from === msg.from;
+    currentMessages.forEach((msg, i) => {
+      const prev = currentMessages[i - 1];
+      const next = currentMessages[i + 1];
+      const sameAsPrev = prev && prev.senderId === msg.senderId;
+      const sameAsNext = next && next.senderId === msg.senderId;
 
       let groupClass = "group-start";
       if (sameAsPrev && sameAsNext) groupClass = "group-mid";
       else if (sameAsPrev && !sameAsNext) groupClass = "group-end";
       else if (!sameAsPrev && !sameAsNext) groupClass = "group-start";
+      
+      const isMe = msg.senderId === firebaseUser.uid;
 
       const row = document.createElement("div");
-      row.className = `msg-row is-${msg.from === "me" ? "out" : "in"} ${groupClass}`;
+      row.className = `msg-row is-${isMe ? "out" : "in"} ${groupClass}`;
+      
+      let timeStr = "";
+      if (msg.createdAt) {
+          const date = msg.createdAt.toDate ? msg.createdAt.toDate() : new Date();
+          timeStr = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
+      }
 
-      const checks =
-        msg.from === "me"
-          ? `<span class="checkmarks${msg.read ? " is-read" : ""}" aria-hidden="true">
+      const checks = isMe
+          ? `<span class="checkmarks is-read" aria-hidden="true">
                <svg viewBox="0 0 16 16" width="14" height="14" fill="none">
                  <path d="M1 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
                  <path d="M6 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
@@ -176,7 +174,7 @@ import { doc, getDoc, setDoc, collection, query, where, limit, getDocs } from "h
       row.innerHTML = `
         <div class="bubble">
           <span class="bubble__text">${escapeHtml(msg.text)}</span>
-          <span class="bubble__meta">${msg.time}${checks}</span>
+          <span class="bubble__meta">${timeStr}${checks}</span>
         </div>
       `;
       threadEl.appendChild(row);
@@ -188,23 +186,21 @@ import { doc, getDoc, setDoc, collection, query, where, limit, getDocs } from "h
   /* ---------------------------------------------------------------------
      Render: chat header
      --------------------------------------------------------------------- */
-  function renderChatHeader(conv) {
-    chatNameEl.textContent = conv.name;
-    chatAvatarEl.textContent = conv.initials;
-    chatStatusEl.innerHTML = `<span class="chat__handle">@${escapeHtml(conv.username)}</span>`;
+  function renderChatHeader(otherUser) {
+    chatNameEl.textContent = otherUser.name;
+    chatAvatarEl.textContent = getInitials(otherUser.name);
+    chatStatusEl.innerHTML = `<span class="chat__handle">@${escapeHtml(otherUser.username)}</span>`;
   }
 
   /* ---------------------------------------------------------------------
      Selecting a conversation
      --------------------------------------------------------------------- */
-  function selectConversation(id) {
-    activeId = id;
-    const conv = getConversation(id);
-    conv.unread = 0; // mark as read on open
+  function selectConversation(id, otherUser) {
+    activeChatId = id;
+    activeChatUser = otherUser;
 
     renderConvList(searchInput.value);
-    renderChatHeader(conv);
-    renderThread(conv);
+    renderChatHeader(otherUser);
     showChatPane();
 
     if (MOBILE_QUERY.matches) {
@@ -212,10 +208,21 @@ import { doc, getDoc, setDoc, collection, query, where, limit, getDocs } from "h
     }
 
     messageInput.focus({ preventScroll: true });
+    
+    // Subscribe to messages
+    if (messagesUnsubscribe) messagesUnsubscribe();
+    
+    const messagesRef = collection(db, "chats", id, "messages");
+    const q = query(messagesRef, orderBy("createdAt", "asc"));
+    
+    messagesUnsubscribe = onSnapshot(q, (snapshot) => {
+        currentMessages = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
+        renderThread();
+    });
   }
 
   /* ---------------------------------------------------------------------
-     Chat pane vs. empty state (shown once every conversation is deleted)
+     Chat pane vs. empty state
      --------------------------------------------------------------------- */
   function showChatPane() {
     chatEmptyEl.hidden = true;
@@ -258,84 +265,49 @@ import { doc, getDoc, setDoc, collection, query, where, limit, getDocs } from "h
     if (e.key === "Escape") closeChatMenu();
   });
 
-  deleteChatBtn.addEventListener("click", () => {
+  deleteChatBtn.addEventListener("click", async () => {
     closeChatMenu();
 
-    const conv = getConversation(activeId);
-    if (!conv) return;
+    if (!activeChatId) return;
 
-    const confirmed = window.confirm(`Delete your conversation with ${conv.name}? This can't be undone.`);
+    const confirmed = window.confirm(`Delete this conversation? This can't be undone.`);
     if (!confirmed) return;
 
-    deleteConversation(conv.id);
+    // For now we just hide it / remove it locally or do a real delete.
+    // A real delete requires deleting all subcollection docs which is hard from client.
+    alert("Deleting chats requires a Cloud Function in Firebase. Not fully implemented in demo.");
   });
-
-  function deleteConversation(id) {
-    const index = conversations.findIndex((c) => c.id === id);
-    if (index === -1) return;
-
-    conversations.splice(index, 1);
-
-    if (activeId === id) {
-      const next = conversations[index] || conversations[index - 1] || null;
-      activeId = next ? next.id : null;
-    }
-
-    renderConvList(searchInput.value);
-
-    if (activeId) {
-      const nextConv = getConversation(activeId);
-      renderChatHeader(nextConv);
-      renderThread(nextConv);
-      showChatPane();
-    } else {
-      showEmptyState();
-      if (MOBILE_QUERY.matches) appEl.classList.remove("is-chat-open");
-    }
-  }
 
   /* ---------------------------------------------------------------------
      Starting a conversation from adduser.html (?to=username)
      --------------------------------------------------------------------- */
-  function findConversationByUsername(username) {
-    return conversations.find((c) => c.username.toLowerCase() === username.toLowerCase());
-  }
-
-  function initialsFromName(name) {
-    const initials = name
-      .split(" ")
-      .filter(Boolean)
-      .slice(0, 2)
-      .map((part) => part[0].toUpperCase())
-      .join("");
-    return initials || name.slice(0, 2).toUpperCase();
-  }
-
-  function nameFromUsername(username) {
-    return username
-      .replace(/[._-]+/g, " ")
-      .trim()
-      .replace(/\b\w/g, (c) => c.toUpperCase());
-  }
-
-  function startConversationWith(username) {
-    let conv = findConversationByUsername(username);
-
-    if (!conv) {
-      const name = nameFromUsername(username) || username;
-      conv = {
-        id: `c_${username.toLowerCase()}_${Date.now()}`,
-        name,
-        username: username.toLowerCase(),
-        initials: initialsFromName(name),
-        online: false,
-        unread: 0,
-        messages: [],
-      };
-      conversations.unshift(conv);
-    }
-
-    selectConversation(conv.id);
+  async function startConversationWith(username) {
+      // Find the user by username
+      const q = query(collection(db, "users"), where("username", "==", username.toLowerCase()), limit(1));
+      const snap = await getDocs(q);
+      if (snap.empty) return;
+      
+      const otherUser = snap.docs[0].data();
+      const chatId = createChatId(firebaseUser.uid, otherUser.uid);
+      
+      // Check if chat exists
+      const chatRef = doc(db, "chats", chatId);
+      const chatSnap = await getDoc(chatRef);
+      
+      if (!chatSnap.exists()) {
+          // Create chat
+          await setDoc(chatRef, {
+              participants: [firebaseUser.uid, otherUser.uid],
+              updatedAt: serverTimestamp(),
+              lastMessage: "",
+              users: {
+                  [firebaseUser.uid]: { name: firebaseProfile.name, username: firebaseProfile.username },
+                  [otherUser.uid]: { name: otherUser.name, username: otherUser.username }
+              }
+          });
+      }
+      
+      selectConversation(chatId, otherUser);
   }
 
   /* ---------------------------------------------------------------------
@@ -345,7 +317,6 @@ import { doc, getDoc, setDoc, collection, query, where, limit, getDocs } from "h
     appEl.classList.remove("is-chat-open");
   });
 
-  // Keep layout correct if the viewport crosses the breakpoint live
   MOBILE_QUERY.addEventListener("change", (e) => {
     if (!e.matches) appEl.classList.remove("is-chat-open");
   });
@@ -359,35 +330,35 @@ import { doc, getDoc, setDoc, collection, query, where, limit, getDocs } from "h
     sendBtn.classList.toggle("is-active", hasText);
   });
 
-  composer.addEventListener("submit", (e) => {
+  composer.addEventListener("submit", async (e) => {
     e.preventDefault();
     const text = messageInput.value.trim();
-    if (!text) return;
+    if (!text || !activeChatId) return;
 
-    const conv = getConversation(activeId);
-    const now = new Date();
-    const time = now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
-
-    conv.messages.push({ from: "me", text, time, read: false });
-
-    renderThread(conv);
-    renderConvList(searchInput.value);
-
+    const chatId = activeChatId; // capture current
     messageInput.value = "";
     sendBtn.disabled = true;
     sendBtn.classList.remove("is-active");
     messageInput.focus();
-
-    // Demo-only: simulate a reply so the thread feels alive.
-    window.setTimeout(() => {
-      conv.messages.push({
-        from: "them",
-        text: "Got it, thanks!",
-        time: now.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" }),
-      });
-      if (activeId === conv.id) renderThread(conv);
-      renderConvList(searchInput.value);
-    }, 1200);
+    
+    try {
+        // Add message
+        await addDoc(collection(db, "chats", chatId, "messages"), {
+            text,
+            senderId: firebaseUser.uid,
+            createdAt: serverTimestamp(),
+            read: false
+        });
+        
+        // Update parent chat
+        await updateDoc(doc(db, "chats", chatId), {
+            lastMessage: text,
+            updatedAt: serverTimestamp()
+        });
+    } catch (err) {
+        console.error("Error sending message:", err);
+        alert("Failed to send message.");
+    }
   });
 
   /* ---------------------------------------------------------------------
@@ -405,9 +376,6 @@ import { doc, getDoc, setDoc, collection, query, where, limit, getDocs } from "h
   /* ---------------------------------------------------------------------
      Init & Auth State
      --------------------------------------------------------------------- */
-  const myProfileBtn = document.getElementById("myProfileBtn");
-  const myAvatarInitials = document.getElementById("myAvatarInitials");
-
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
       window.location.href = "login.html";
@@ -420,13 +388,19 @@ import { doc, getDoc, setDoc, collection, query, where, limit, getDocs } from "h
       const docSnap = await getDoc(doc(db, "users", user.uid));
       if (docSnap.exists()) {
         firebaseProfile = docSnap.data();
+        
+        // Setup UI
+        myAvatarInitials.textContent = getInitials(firebaseProfile.name);
+        myProfileBtn.setAttribute("aria-label", `Your profile, ${firebaseProfile.name}, @${firebaseProfile.username}`);
+        myProfileBtn.title = `@${firebaseProfile.username}`;
+        
         if (!firebaseProfile.username) {
           usernameModal.removeAttribute('hidden');
         } else {
           localStorage.setItem("relay_username", firebaseProfile.username);
+          initializeApp();
         }
       } else {
-        // Doc doesn't exist (maybe Google login for first time)
         usernameModal.removeAttribute('hidden');
       }
     } catch (err) {
@@ -434,10 +408,44 @@ import { doc, getDoc, setDoc, collection, query, where, limit, getDocs } from "h
       if (err.code === "permission-denied") {
         alert("Firestore Permission Denied. Please ensure your Firestore database is created and set to Test Mode rules.");
       }
-      // Show modal just in case we can't read but need to setup
       usernameModal.removeAttribute('hidden');
     }
   });
+  
+  function initializeApp() {
+      // Listen to chats
+      const q = query(collection(db, "chats"), where("participants", "array-contains", firebaseUser.uid));
+      onSnapshot(q, (snapshot) => {
+          chats = snapshot.docs.map(doc => {
+              const data = doc.data();
+              const otherUid = data.participants.find(id => id !== firebaseUser.uid);
+              return { id: doc.id, otherUid, ...data };
+          });
+          
+          // Sort chats in memory to avoid requiring a Firestore composite index
+          chats.sort((a, b) => {
+            const timeA = a.updatedAt ? (a.updatedAt.toMillis ? a.updatedAt.toMillis() : 0) : 0;
+            const timeB = b.updatedAt ? (b.updatedAt.toMillis ? b.updatedAt.toMillis() : 0) : 0;
+            return timeB - timeA;
+          });
+          
+          renderConvList(searchInput.value);
+          
+          if (chats.length > 0 && !activeChatId) {
+              const firstChat = chats[0];
+              selectConversation(firstChat.id, firstChat.users[firstChat.otherUid]);
+          } else if (chats.length === 0) {
+              showEmptyState();
+          }
+      });
+      
+      const params = new URLSearchParams(window.location.search);
+      const toUsername = params.get("to");
+      if (toUsername) {
+        startConversationWith(toUsername);
+        window.history.replaceState({}, "", "app.html");
+      }
+  }
 
   usernameForm.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -452,7 +460,6 @@ import { doc, getDoc, setDoc, collection, query, where, limit, getDocs } from "h
     onboardingUsernameSubmit.querySelector(".auth-submit__label").textContent = "Saving...";
 
     try {
-      // Check if taken
       const usersRef = collection(db, "users");
       const q = query(usersRef, where("username", "==", val), limit(1));
       const snap = await getDocs(q);
@@ -465,7 +472,6 @@ import { doc, getDoc, setDoc, collection, query, where, limit, getDocs } from "h
         return;
       }
 
-      // Save to Firestore
       await setDoc(doc(db, "users", firebaseUser.uid), {
         uid: firebaseUser.uid,
         name: firebaseUser.displayName || firebaseUser.email.split("@")[0],
@@ -477,6 +483,14 @@ import { doc, getDoc, setDoc, collection, query, where, limit, getDocs } from "h
       localStorage.setItem("relay_username", val);
       usernameModal.setAttribute('hidden', 'true');
       
+      // Update profile cache and init
+      firebaseProfile = { ...firebaseProfile, username: val, name: firebaseUser.displayName || firebaseUser.email.split("@")[0] };
+      myAvatarInitials.textContent = getInitials(firebaseProfile.name);
+      myProfileBtn.setAttribute("aria-label", `Your profile, ${firebaseProfile.name}, @${firebaseProfile.username}`);
+      myProfileBtn.title = `@${firebaseProfile.username}`;
+      
+      initializeApp();
+      
     } catch (err) {
       console.error(err);
       onboardingUsernameError.textContent = "Something went wrong. Try again.";
@@ -486,21 +500,4 @@ import { doc, getDoc, setDoc, collection, query, where, limit, getDocs } from "h
     }
   });
 
-  myAvatarInitials.textContent = currentUser.initials;
-  myProfileBtn.setAttribute(
-    "aria-label",
-    `Your profile, ${currentUser.name}, @${currentUser.username}`
-  );
-  myProfileBtn.title = `@${currentUser.username}`;
-
-  renderConvList();
-  renderChatHeader(getConversation(activeId));
-  renderThread(getConversation(activeId));
-
-  const params = new URLSearchParams(window.location.search);
-  const toUsername = params.get("to");
-  if (toUsername) {
-    startConversationWith(toUsername);
-    window.history.replaceState({}, "", "app.html");
-  }
 })();
