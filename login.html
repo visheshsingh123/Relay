@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0D0B14">
+<title>Log in — Relay</title>
+<link rel="icon" type="image/png" href="Assets/logo.png">
+<link rel="manifest" href="JSON/manifest.json">
+<link rel="stylesheet" href="CSS/styles.css">
+<link rel="stylesheet" href="CSS/login.css">
+</head>
+<body class="auth-body">
+
+<header class="auth-topbar">
+  <h1 class="logo">Relay<span class="logo__dot">.</span></h1>
+</header>
+
+<main class="auth-main">
+  <div class="auth-card">
+    <div class="auth-card__accent" aria-hidden="true"></div>
+
+    <div class="auth-card__content">
+      <h2 class="auth-title">Log in</h2>
+      <p class="auth-subtitle">Enter your email and password to continue.</p>
+
+      <form class="auth-form" id="loginForm" novalidate>
+
+        <div class="field">
+          <label class="field__label" for="email">Email or username</label>
+          <input
+            class="field__input"
+            type="text"
+            id="email"
+            name="email"
+            placeholder="you@example.com or username"
+            autocomplete="username"
+            required
+          >
+          <p class="field__error" id="emailError" hidden>Enter a valid email or username.</p>
+        </div>
+
+        <div class="field">
+          <div class="field__label-row">
+            <label class="field__label" for="password">Password</label>
+            <a class="field__link" href="#" id="forgotLink">Forgot password?</a>
+          </div>
+          <div class="field__input-wrap">
+            <input
+              class="field__input"
+              type="password"
+              id="password"
+              name="password"
+              placeholder="Enter your password"
+              autocomplete="current-password"
+              required
+              minlength="8"
+            >
+            <button type="button" class="field__reveal" id="togglePassword" aria-label="Show password" aria-pressed="false">
+              <svg viewBox="0 0 24 24" width="19" height="19" fill="none" aria-hidden="true">
+                <path class="eye-open" d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                <circle class="eye-open" cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.7"/>
+                <path class="eye-closed" d="M3.5 3.5l17 17" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" style="display:none"/>
+              </svg>
+            </button>
+          </div>
+          <p class="field__error" id="passwordError" hidden>Password must be at least 8 characters.</p>
+        </div>
+
+        <div class="field field--row">
+          <label class="checkbox">
+            <input type="checkbox" id="remember" name="remember">
+            <span class="checkbox__box" aria-hidden="true"></span>
+            <span class="checkbox__label">Stay signed in</span>
+          </label>
+        </div>
+
+        <p class="form-error" id="formError" role="alert" hidden></p>
+
+        <button type="submit" class="auth-submit" id="loginSubmit">
+          <span class="auth-submit__label">Log in</span>
+        </button>
+      </form>
+
+      <div class="auth-divider" role="separator">
+        <span>or</span>
+      </div>
+
+      <p class="auth-switch">
+        New to Relay?
+        <a href="signup.html">Create an account</a>
+      </p>
+    </div>
+  </div>
+</main>
+
+<script src="JS/login.js"></script>
+</body>
+</html>
