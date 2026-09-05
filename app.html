@@ -17,7 +17,7 @@
   <aside class="sidebar" id="sidebar" aria-label="Conversations">
 
     <header class="sidebar__header">
-      <h1 class="logo">Relay<span class="logo__dot">.</span></h1>
+      <h1 class="logo"><a class="logo__link" href="app.html">Relay<span class="logo__dot">.</span></a></h1>
 
       <div class="sidebar__actions">
         <button class="icon-btn" id="searchToggle" aria-label="Search conversations" aria-expanded="false">
@@ -27,9 +27,9 @@
           </svg>
         </button>
 
-        <button class="avatar-badge" id="myProfileBtn" aria-label="Your profile, Vivian Serrano, @vivian">
+        <a class="avatar-badge" id="myProfileBtn" href="settings.html" aria-label="Your profile, Vivian Serrano, @vivian">
           <span class="avatar avatar--me" id="myAvatarInitials">VS</span>
-        </button>
+        </a>
       </div>
     </header>
 
@@ -41,12 +41,12 @@
       <!-- Conversation items injected by app.js -->
     </nav>
 
-    <button class="fab" id="newChatBtn" aria-label="Start a new conversation">
+    <a class="fab" id="newChatBtn" href="adduser.html" aria-label="Start a new conversation">
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true">
         <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
         <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
       </svg>
-    </button>
+    </a>
   </aside>
 
   <!-- ============ MAIN : ACTIVE CHAT THREAD ============ -->
@@ -70,18 +70,36 @@
       </div>
 
       <div class="chat__actions">
-        <button class="icon-btn" aria-label="More options">
-          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
-            <circle cx="5" cy="12" r="1.7" fill="currentColor"/>
-            <circle cx="12" cy="12" r="1.7" fill="currentColor"/>
-            <circle cx="19" cy="12" r="1.7" fill="currentColor"/>
-          </svg>
-        </button>
+        <div class="menu" id="chatMenu">
+          <button class="icon-btn" id="chatMenuBtn" aria-label="More options" aria-haspopup="true" aria-expanded="false">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
+              <circle cx="5" cy="12" r="1.7" fill="currentColor"/>
+              <circle cx="12" cy="12" r="1.7" fill="currentColor"/>
+              <circle cx="19" cy="12" r="1.7" fill="currentColor"/>
+            </svg>
+          </button>
+          <div class="menu__dropdown" id="chatMenuDropdown" role="menu" hidden>
+            <button type="button" class="menu__item menu__item--danger" id="deleteChatBtn" role="menuitem">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" aria-hidden="true">
+                <path d="M4 7h16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+                <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+                <path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+              Delete chat
+            </button>
+          </div>
+        </div>
       </div>
     </header>
 
     <div class="thread" id="thread" aria-live="polite">
       <!-- Message bubbles injected by app.js -->
+    </div>
+
+    <div class="chat__empty" id="chatEmpty" hidden>
+      <p class="chat__empty-title">No conversation selected</p>
+      <p class="chat__empty-body">Choose a conversation from the list, or start a new one.</p>
     </div>
 
     <form class="composer" id="composer">

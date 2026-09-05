@@ -4,6 +4,9 @@
    handleSignup() for a real Supabase Auth signUp() call later.
    ========================================================================== */
 
+import { auth, db } from "./firebase-config.js";
+import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+import { setDoc, doc, getDoc, collection, query, where, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
 (() => {
   "use strict";
 
@@ -37,6 +40,7 @@
   const submitBtn = document.getElementById("signupSubmit");
   const submitLabel = submitBtn.querySelector(".auth-submit__label");
   const togglePasswordBtn = document.getElementById("togglePassword");
+  const googleSignupBtn = document.getElementById("googleSignupBtn");
 
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const USERNAME_RE = /^[a-zA-Z][a-zA-Z0-9_]{2,19}$/;
@@ -96,14 +100,11 @@
     }
   }
 
-  // Demo-only lookup. Replace with a real request, e.g. a Supabase query
-  // against the profiles table: .select('id').eq('username', value).
-  function fakeUsernameLookup(value) {
-    return new Promise((resolve) => {
-      window.setTimeout(() => {
-        resolve(!TAKEN_USERNAMES.includes(value.toLowerCase()));
-      }, 500);
-    });
+  async function checkUsernameAvailable(value) {
+    const usersRef = collection(db, "users");
+    const q = query(usersRef, where("username", "==", value.toLowerCase()), limit(1));
+    const snapshot = await getDocs(q);
+    return snapshot.empty; // true if available
   }
 
   function handleUsernameChange() {
@@ -139,7 +140,7 @@
 
     const token = ++usernameCheckToken;
     usernameCheckTimer = window.setTimeout(async () => {
-      const available = await fakeUsernameLookup(value);
+      const available = await checkUsernameAvailable(value);
       if (token !== usernameCheckToken) return; // a newer keystroke superseded this check
 
       usernameChecking = false;
@@ -317,18 +318,19 @@
     formError.hidden = false;
   }
 
-  // Demo-only signup call. Replace with a real request, e.g.:
-  //   await supabase.auth.signUp({ email, password, options: { data: { full_name, username } } })
-  function fakeSignupRequest(name, username, email, password) {
-    return new Promise((resolve, reject) => {
-      window.setTimeout(() => {
-        if (email.toLowerCase().endsWith("@taken.com")) {
-          reject(new Error("An account with this email already exists."));
-        } else {
-          resolve({ name, username, email });
-        }
-      }, 900);
+  async function firebaseSignup(name, username, email, password) {
+    // Create auth user
+    const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+    const uid = userCredential.user.uid;
+    // Store user profile in Firestore
+    await setDoc(doc(db, "users", uid), {
+        uid,
+        name,
+        username: username.toLowerCase(),
+        email,
+        createdAt: new Date().toISOString()
     });
+    return userCredential;
   }
 
   form.addEventListener("submit", async (e) => {
@@ -339,20 +341,82 @@
 
     setLoading(true);
     try {
-      await fakeSignupRequest(
-        nameInput.value.trim(),
-        usernameInput.value,
-        emailInput.value.trim(),
-        passwordInput.value
-      );
-      submitLabel.textContent = "Account created — redirecting…";
-      window.setTimeout(() => {
-        window.location.href = "app.html";
-      }, 500);
+        await firebaseSignup(
+            nameInput.value.trim(),
+            usernameInput.value,
+            emailInput.value.trim(),
+            passwordInput.value
+        );
+        submitLabel.textContent = "Account created — redirecting…";
+        window.setTimeout(() => {
+            window.location.href = "app.html";
+        }, 500);
     } catch (err) {
-      setLoading(false);
-      showFormError(err.message);
-      emailInput.focus();
+        setLoading(false);
+        // Map Firebase errors to user‑friendly messages
+        let message = err.message;
+        if (err.code) {
+            switch (err.code) {
+                case "auth/email-already-in-use":
+                    message = "An account with this email already exists.";
+                    break;
+                case "auth/invalid-email":
+                    message = "The email address is not valid.";
+                    break;
+                case "auth/weak-password":
+                    message = "Password is too weak. Use at least 8 characters.";
+                    break;
+                default:
+                    message = "Something went wrong creating your account. Please try again.";
+            }
+        }
+        showFormError(message);
+        emailInput.focus();
+    }
+  });
+
+  /* ---------------------------------------------------------------------
+     Continue with Google — demo-only popup simulation. Replace with a
+     real Firebase call, e.g.:
+       const provider = new GoogleAuthProvider();
+       const result = await signInWithPopup(auth, provider);
+     On success, still write the users/{uid} + usernames/{username} docs
+     (Google sign-in skips your form, so you'll need to collect or
+     auto-generate a username the first time this account signs in).
+     --------------------------------------------------------------------- */
+  function fakeGoogleAuthRequest() {
+    return new Promise((resolve) => {
+      window.setTimeout(() => resolve({ email: "demo.user@gmail.com" }), 700);
+    });
+  }
+
+  function setGoogleLoading(isLoading) {
+    googleSignupBtn.disabled = isLoading;
+    googleSignupBtn.classList.toggle("is-loading", isLoading);
+    const label = googleSignupBtn.querySelector(".auth-social__label");
+
+    if (isLoading) {
+      label.textContent = "Connecting…";
+      const spinner = document.createElement("span");
+      spinner.className = "spinner";
+      spinner.setAttribute("aria-hidden", "true");
+      googleSignupBtn.prepend(spinner);
+    } else {
+      label.textContent = "Continue with Google";
+      const spinner = googleSignupBtn.querySelector(".spinner");
+      if (spinner) spinner.remove();
+    }
+  }
+
+  googleSignupBtn.addEventListener("click", async () => {
+    hideFormError();
+    setGoogleLoading(true);
+    try {
+      await fakeGoogleAuthRequest();
+      window.location.href = "app.html";
+    } catch (err) {
+      setGoogleLoading(false);
+      showFormError("Couldn't sign up with Google. Please try again.");
     }
   });
 })();

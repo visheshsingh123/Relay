@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0D0B14">
+<title>Settings — Relay</title>
+<link rel="icon" type="image/png" href="Assets/logo.png">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="settings-body">
+
+<div class="settings-page">
+
+  <header class="settings-topbar">
+    <h1 class="logo"><a class="logo__link" href="app.html">Relay<span class="logo__dot">.</span></a></h1>
+    <a class="icon-btn" id="backToApp" href="app.html" aria-label="Back to conversations">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
+        <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+    </a>
+  </header>
+
+  <main class="settings-main">
+    <div class="settings-card">
+      <h2 class="settings-card__title">Settings</h2>
+
+      <form id="settingsForm" novalidate>
+
+        <!-- ============ PROFILE ============ -->
+        <section class="settings-section">
+          <h3 class="settings-section__title">Profile</h3>
+          <p class="settings-section__desc">This is how you appear to the people you message.</p>
+
+          <div class="settings-profile-row">
+            <span class="avatar avatar--xl" id="settingsAvatar">VS</span>
+            <button type="button" class="settings-link" id="changePhotoBtn">Change photo</button>
+          </div>
+
+          <div class="settings-grid">
+            <div class="field">
+              <label class="field__label" for="fullName">Full name</label>
+              <input class="field__input" type="text" id="fullName" name="fullName" autocomplete="name">
+              <p class="field__error" id="fullNameError" hidden>Enter your full name.</p>
+            </div>
+
+            <div class="field">
+              <label class="field__label" for="username">Username</label>
+              <div class="username-wrap">
+                <span class="username-prefix" aria-hidden="true">@</span>
+                <input
+                  class="field__input has-prefix"
+                  type="text"
+                  id="username"
+                  name="username"
+                  autocomplete="off"
+                  autocapitalize="none"
+                  spellcheck="false"
+                  maxlength="20"
+                >
+              </div>
+              <p class="field__error" id="usernameError" hidden>Choose a valid username.</p>
+            </div>
+          </div>
+        </section>
+
+        <!-- ============ ACCOUNT ============ -->
+        <section class="settings-section">
+          <h3 class="settings-section__title">Account</h3>
+          <p class="settings-section__desc">Used for signing in and account recovery.</p>
+
+          <div class="field">
+            <label class="field__label" for="email">Email</label>
+            <input class="field__input" type="email" id="email" name="email" autocomplete="email">
+            <p class="field__error" id="emailError" hidden>Enter a valid email address.</p>
+          </div>
+        </section>
+
+        <!-- ============ PASSWORD ============ -->
+        <section class="settings-section">
+          <h3 class="settings-section__title">Password</h3>
+          <p class="settings-section__desc">Leave these blank if you don't want to change it.</p>
+
+          <div class="settings-grid">
+            <div class="field">
+              <label class="field__label" for="newPassword">New password</label>
+              <input class="field__input" type="password" id="newPassword" name="newPassword" autocomplete="new-password" placeholder="••••••••" minlength="8">
+            </div>
+            <div class="field">
+              <label class="field__label" for="confirmPassword">Confirm new password</label>
+              <input class="field__input" type="password" id="confirmPassword" name="confirmPassword" autocomplete="new-password" placeholder="••••••••">
+            </div>
+          </div>
+          <p class="field__error" id="passwordError" hidden>Passwords must match and be at least 8 characters.</p>
+        </section>
+
+        <!-- ============ PREFERENCES ============ -->
+        <section class="settings-section">
+          <h3 class="settings-section__title">Preferences</h3>
+
+          <label class="checkbox">
+            <input type="checkbox" id="readReceipts" name="readReceipts" checked>
+            <span class="checkbox__box" aria-hidden="true"></span>
+            <span class="checkbox__label">Show read receipts</span>
+          </label>
+
+          <label class="checkbox">
+            <input type="checkbox" id="onlineStatus" name="onlineStatus" checked>
+            <span class="checkbox__box" aria-hidden="true"></span>
+            <span class="checkbox__label">Show when you're online</span>
+          </label>
+        </section>
+
+        <p class="form-error" id="formError" role="alert" hidden></p>
+        <p class="form-success" id="formSuccess" role="status" hidden>Changes saved.</p>
+
+        <div class="settings-actions">
+          <button type="button" class="btn-secondary" id="logoutBtn">Log out</button>
+          <button type="submit" class="auth-submit settings-save" id="saveBtn">
+            <span class="auth-submit__label">Save changes</span>
+          </button>
+        </div>
+
+        <!-- ============ DANGER ZONE ============ -->
+        <div class="settings-danger">
+          <div class="settings-danger__body">
+            <p class="settings-danger__title">Delete account</p>
+            <p class="settings-danger__desc">Permanently deletes your account and all your conversations.</p>
+          </div>
+          <button type="button" class="btn-danger" id="deleteAccountBtn">Delete account</button>
+        </div>
+
+      </form>
+    </div>
+  </main>
+
+</div>
+
+<script src="settings.js"></script>
+</body>
+</html>

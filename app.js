@@ -46,6 +46,13 @@
   const chatAvatarEl = document.getElementById("chatAvatar");
   const chatStatusEl = document.getElementById("chatStatus");
   const backBtn = document.getElementById("backBtn");
+  const chatEl = document.getElementById("chat");
+  const chatHeaderEl = document.getElementById("chatHeader");
+  const chatEmptyEl = document.getElementById("chatEmpty");
+  const chatMenu = document.getElementById("chatMenu");
+  const chatMenuBtn = document.getElementById("chatMenuBtn");
+  const chatMenuDropdown = document.getElementById("chatMenuDropdown");
+  const deleteChatBtn = document.getElementById("deleteChatBtn");
   const composer = document.getElementById("composer");
   const messageInput = document.getElementById("messageInput");
   const sendBtn = document.getElementById("sendBtn");
@@ -63,7 +70,7 @@
   }
 
   function lastMessage(conv) {
-    return conv.messages[conv.messages.length - 1];
+    return conv.messages[conv.messages.length - 1] || null;
   }
 
   function escapeHtml(str) {
@@ -97,6 +104,10 @@
           `Open conversation with ${conv.name}${conv.unread ? `, ${conv.unread} unread` : ""}`
         );
 
+        const previewText = last
+          ? `${last.from === "me" ? "You: " : ""}${escapeHtml(last.text)}`
+          : "No messages yet";
+
         item.innerHTML = `
           <span class="avatar-wrap">
             <span class="avatar avatar--sm">${conv.initials}</span>
@@ -105,10 +116,10 @@
           <span class="conv-item__body">
             <span class="conv-item__top">
               <span class="conv-item__name">${escapeHtml(conv.name)}</span>
-              <span class="conv-item__time">${last.time}</span>
+              <span class="conv-item__time">${last ? last.time : ""}</span>
             </span>
             <span class="conv-item__preview-row">
-              <span class="conv-item__preview">${last.from === "me" ? "You: " : ""}${escapeHtml(last.text)}</span>
+              <span class="conv-item__preview">${previewText}</span>
               ${conv.unread > 0 ? `<span class="unread-badge">${conv.unread}</span>` : ""}
             </span>
           </span>
@@ -181,12 +192,137 @@
     renderConvList(searchInput.value);
     renderChatHeader(conv);
     renderThread(conv);
+    showChatPane();
 
     if (MOBILE_QUERY.matches) {
       appEl.classList.add("is-chat-open");
     }
 
     messageInput.focus({ preventScroll: true });
+  }
+
+  /* ---------------------------------------------------------------------
+     Chat pane vs. empty state (shown once every conversation is deleted)
+     --------------------------------------------------------------------- */
+  function showChatPane() {
+    chatEmptyEl.hidden = true;
+    chatHeaderEl.hidden = false;
+    threadEl.hidden = false;
+    composer.hidden = false;
+  }
+
+  function showEmptyState() {
+    chatHeaderEl.hidden = true;
+    threadEl.hidden = true;
+    composer.hidden = true;
+    chatEmptyEl.hidden = false;
+  }
+
+  /* ---------------------------------------------------------------------
+     Chat header menu: open/close + delete chat
+     --------------------------------------------------------------------- */
+  function closeChatMenu() {
+    chatMenuDropdown.hidden = true;
+    chatMenuBtn.setAttribute("aria-expanded", "false");
+  }
+
+  function openChatMenu() {
+    chatMenuDropdown.hidden = false;
+    chatMenuBtn.setAttribute("aria-expanded", "true");
+  }
+
+  chatMenuBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    if (chatMenuDropdown.hidden) openChatMenu();
+    else closeChatMenu();
+  });
+
+  document.addEventListener("click", (e) => {
+    if (!chatMenu.contains(e.target)) closeChatMenu();
+  });
+
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") closeChatMenu();
+  });
+
+  deleteChatBtn.addEventListener("click", () => {
+    closeChatMenu();
+
+    const conv = getConversation(activeId);
+    if (!conv) return;
+
+    const confirmed = window.confirm(`Delete your conversation with ${conv.name}? This can't be undone.`);
+    if (!confirmed) return;
+
+    deleteConversation(conv.id);
+  });
+
+  function deleteConversation(id) {
+    const index = conversations.findIndex((c) => c.id === id);
+    if (index === -1) return;
+
+    conversations.splice(index, 1);
+
+    if (activeId === id) {
+      const next = conversations[index] || conversations[index - 1] || null;
+      activeId = next ? next.id : null;
+    }
+
+    renderConvList(searchInput.value);
+
+    if (activeId) {
+      const nextConv = getConversation(activeId);
+      renderChatHeader(nextConv);
+      renderThread(nextConv);
+      showChatPane();
+    } else {
+      showEmptyState();
+      if (MOBILE_QUERY.matches) appEl.classList.remove("is-chat-open");
+    }
+  }
+
+  /* ---------------------------------------------------------------------
+     Starting a conversation from adduser.html (?to=username)
+     --------------------------------------------------------------------- */
+  function findConversationByUsername(username) {
+    return conversations.find((c) => c.username.toLowerCase() === username.toLowerCase());
+  }
+
+  function initialsFromName(name) {
+    const initials = name
+      .split(" ")
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0].toUpperCase())
+      .join("");
+    return initials || name.slice(0, 2).toUpperCase();
+  }
+
+  function nameFromUsername(username) {
+    return username
+      .replace(/[._-]+/g, " ")
+      .trim()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+
+  function startConversationWith(username) {
+    let conv = findConversationByUsername(username);
+
+    if (!conv) {
+      const name = nameFromUsername(username) || username;
+      conv = {
+        id: `c_${username.toLowerCase()}_${Date.now()}`,
+        name,
+        username: username.toLowerCase(),
+        initials: initialsFromName(name),
+        online: false,
+        unread: 0,
+        messages: [],
+      };
+      conversations.unshift(conv);
+    }
+
+    selectConversation(conv.id);
   }
 
   /* ---------------------------------------------------------------------
@@ -268,4 +404,11 @@
   renderConvList();
   renderChatHeader(getConversation(activeId));
   renderThread(getConversation(activeId));
+
+  const params = new URLSearchParams(window.location.search);
+  const toUsername = params.get("to");
+  if (toUsername) {
+    startConversationWith(toUsername);
+    window.history.replaceState({}, "", "app.html");
+  }
 })();

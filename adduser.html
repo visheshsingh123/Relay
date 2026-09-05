@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0D0B14">
+<title>New message — Relay</title>
+<link rel="icon" type="image/png" href="Assets/logo.png">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="adduser-body">
+
+<div class="adduser-page">
+
+  <header class="adduser-topbar">
+    <h1 class="logo"><a class="logo__link" href="app.html">Relay<span class="logo__dot">.</span></a></h1>
+    <a class="icon-btn" id="backToApp" href="app.html" aria-label="Back to conversations">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
+        <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+    </a>
+  </header>
+
+  <main class="adduser-main">
+    <div class="adduser-block">
+      <h2 class="adduser-heading">Search Username</h2>
+
+      <label class="sr-only" for="usernameSearch">Search by name or username</label>
+      <div class="adduser-searchbar">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
+          <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/>
+          <line x1="20" y1="20" x2="15.8" y2="15.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        </svg>
+        <input
+          type="search"
+          id="usernameSearch"
+          placeholder="example : @VisheshSingh"
+          autocomplete="off"
+          autofocus
+        >
+      </div>
+
+      <div class="adduser__results" id="results" aria-live="polite">
+        <!-- Results injected by adduser.js -->
+      </div>
+    </div>
+  </main>
+
+</div>
+
+<script src="adduser.js"></script>
+</body>
+</html>
