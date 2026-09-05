@@ -45,8 +45,9 @@ import {
   /* ---------------------------------------------------------------------
      If already signed in, skip the form entirely.
      --------------------------------------------------------------------- */
-  onAuthStateChanged(auth, (user) => {
+  const unsubscribe = onAuthStateChanged(auth, (user) => {
     if (user) window.location.href = "app.html";
+    unsubscribe();
   });
 
   /* ---------------------------------------------------------------------
@@ -227,7 +228,7 @@ import {
     setGoogleLoading(true);
     try {
       await signInWithPopup(auth, googleProvider);
-      // onAuthStateChanged handles redirect to app.html
+      window.location.href = "app.html";
     } catch (err) {
       setGoogleLoading(false);
       if (err.code === "auth/popup-closed-by-user") return;

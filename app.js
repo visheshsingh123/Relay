@@ -5,8 +5,15 @@
    Supabase Auth / Realtime / Storage calls later.
    ========================================================================== */
 
+import { auth, db } from "./firebase-config.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+import { doc, getDoc, setDoc, collection, query, where, limit, getDocs } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+
 (() => {
   "use strict";
+
+  let firebaseUser = null;
+  let firebaseProfile = null;
 
   /* ---------------------------------------------------------------------
      Demo data — replace with a Supabase fetch later
@@ -59,6 +66,12 @@
   const searchToggle = document.getElementById("searchToggle");
   const searchBar = document.getElementById("searchBar");
   const searchInput = document.getElementById("searchInput");
+
+  const usernameModal = document.getElementById("usernameModal");
+  const usernameForm = document.getElementById("usernameForm");
+  const onboardingUsername = document.getElementById("onboardingUsername");
+  const onboardingUsernameError = document.getElementById("onboardingUsernameError");
+  const onboardingUsernameSubmit = document.getElementById("onboardingUsernameSubmit");
 
   const MOBILE_QUERY = window.matchMedia("(max-width: 767px)");
 
@@ -390,10 +403,89 @@
   searchInput.addEventListener("input", () => renderConvList(searchInput.value));
 
   /* ---------------------------------------------------------------------
-     Init
+     Init & Auth State
      --------------------------------------------------------------------- */
   const myProfileBtn = document.getElementById("myProfileBtn");
   const myAvatarInitials = document.getElementById("myAvatarInitials");
+
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      window.location.href = "login.html";
+      return;
+    }
+    firebaseUser = user;
+    
+    // Fetch profile
+    try {
+      const docSnap = await getDoc(doc(db, "users", user.uid));
+      if (docSnap.exists()) {
+        firebaseProfile = docSnap.data();
+        if (!firebaseProfile.username) {
+          usernameModal.removeAttribute('hidden');
+        } else {
+          localStorage.setItem("relay_username", firebaseProfile.username);
+        }
+      } else {
+        // Doc doesn't exist (maybe Google login for first time)
+        usernameModal.removeAttribute('hidden');
+      }
+    } catch (err) {
+      console.error("Error fetching profile:", err);
+      if (err.code === "permission-denied") {
+        alert("Firestore Permission Denied. Please ensure your Firestore database is created and set to Test Mode rules.");
+      }
+      // Show modal just in case we can't read but need to setup
+      usernameModal.removeAttribute('hidden');
+    }
+  });
+
+  usernameForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const val = onboardingUsername.value.trim().toLowerCase();
+    if (!/^[a-z][a-z0-9_]{2,19}$/.test(val)) {
+      onboardingUsernameError.textContent = "3-20 characters: letters, numbers, underscores.";
+      onboardingUsernameError.hidden = false;
+      return;
+    }
+
+    onboardingUsernameSubmit.disabled = true;
+    onboardingUsernameSubmit.querySelector(".auth-submit__label").textContent = "Saving...";
+
+    try {
+      // Check if taken
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, where("username", "==", val), limit(1));
+      const snap = await getDocs(q);
+      
+      if (!snap.empty) {
+        onboardingUsernameError.textContent = "That username is already taken.";
+        onboardingUsernameError.hidden = false;
+        onboardingUsernameSubmit.disabled = false;
+        onboardingUsernameSubmit.querySelector(".auth-submit__label").textContent = "Continue";
+        return;
+      }
+
+      // Save to Firestore
+      await setDoc(doc(db, "users", firebaseUser.uid), {
+        uid: firebaseUser.uid,
+        name: firebaseUser.displayName || firebaseUser.email.split("@")[0],
+        email: firebaseUser.email,
+        username: val,
+        createdAt: new Date().toISOString()
+      }, { merge: true });
+
+      localStorage.setItem("relay_username", val);
+      usernameModal.setAttribute('hidden', 'true');
+      
+    } catch (err) {
+      console.error(err);
+      onboardingUsernameError.textContent = "Something went wrong. Try again.";
+      onboardingUsernameError.hidden = false;
+      onboardingUsernameSubmit.disabled = false;
+      onboardingUsernameSubmit.querySelector(".auth-submit__label").textContent = "Continue";
+    }
+  });
+
   myAvatarInitials.textContent = currentUser.initials;
   myProfileBtn.setAttribute(
     "aria-label",

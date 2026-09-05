@@ -8,31 +8,27 @@ import { auth, db } from "./firebase-config.js";
 import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { setDoc, doc, getDoc, collection, query, where, limit, getDocs } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
-// If user is already signed in (or just signed in), redirect to app
-onAuthStateChanged(auth, (user) => {
+// Only redirect on initial page load if already signed in
+const unsubscribe = onAuthStateChanged(auth, (user) => {
   if (user) window.location.href = "app.html";
+  unsubscribe();
 });
 (() => {
   "use strict";
 
   const form = document.getElementById("signupForm");
   const nameInput = document.getElementById("name");
-  const usernameInput = document.getElementById("username");
   const emailInput = document.getElementById("email");
   const passwordInput = document.getElementById("password");
   const confirmInput = document.getElementById("confirmPassword");
   const termsInput = document.getElementById("terms");
 
   const nameField = nameInput.closest(".field");
-  const usernameField = usernameInput.closest(".field");
   const emailField = emailInput.closest(".field");
   const passwordField = passwordInput.closest(".field");
   const confirmField = confirmInput.closest(".field");
 
   const nameError = document.getElementById("nameError");
-  const usernameError = document.getElementById("usernameError");
-  const usernameHint = document.getElementById("usernameHint");
-  const usernameStatus = document.getElementById("usernameStatus");
   const emailError = document.getElementById("emailError");
   const passwordError = document.getElementById("passwordError");
   const confirmError = document.getElementById("confirmError");
@@ -48,126 +44,10 @@ onAuthStateChanged(auth, (user) => {
   const googleSignupBtn = document.getElementById("googleSignupBtn");
 
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  const USERNAME_RE = /^[a-zA-Z][a-zA-Z0-9_]{2,19}$/;
-
-  // Demo-only "existing users" list, used to simulate an availability check.
-  const TAKEN_USERNAMES = ["admin", "support", "relay", "john", "test", "johndoe"];
-
-  /* ---------------------------------------------------------------------
-     Username: auto-suggest from full name until the person edits it
-     directly, then format validation + a debounced availability check.
-     --------------------------------------------------------------------- */
-  let usernameTouched = false;
-  let usernameCheckTimer = null;
-  let usernameCheckToken = 0;
-  let usernameIsAvailable = false;
-  let usernameChecking = false;
-
-  function slugifyName(value) {
-    return value
-      .toLowerCase()
-      .normalize("NFD").replace(/[\u0300-\u036f]/g, "") // strip accents
-      .replace(/[^a-z0-9\s_]/g, "")
-      .trim()
-      .replace(/\s+/g, "")
-      .slice(0, 20);
-  }
 
   nameInput.addEventListener("input", () => {
     clearFieldError(nameField, nameError);
-    if (!usernameTouched) {
-      usernameInput.value = slugifyName(nameInput.value);
-      handleUsernameChange({ auto: true });
-    }
   });
-
-  usernameInput.addEventListener("input", () => {
-    usernameTouched = true;
-    // Usernames are conventionally lowercase; normalize as they type.
-    const cleaned = usernameInput.value.replace(/[^a-zA-Z0-9_]/g, "");
-    if (cleaned !== usernameInput.value) usernameInput.value = cleaned;
-    handleUsernameChange({ auto: false });
-  });
-
-  function setUsernameStatusIcon(state) {
-    if (state === "checking") {
-      usernameStatus.innerHTML = '<span class="spinner" aria-hidden="true"></span>';
-    } else if (state === "available") {
-      usernameStatus.innerHTML =
-        '<svg class="icon-available" viewBox="0 0 16 16" width="15" height="15" fill="none" aria-hidden="true">' +
-        '<path d="M2 8.5l3.2 3.2L14 3" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>';
-    } else if (state === "taken") {
-      usernameStatus.innerHTML =
-        '<svg class="icon-taken" viewBox="0 0 16 16" width="14" height="14" fill="none" aria-hidden="true">' +
-        '<path d="M3 3l10 10M13 3L3 13" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
-    } else {
-      usernameStatus.innerHTML = "";
-    }
-  }
-
-  async function checkUsernameAvailable(value) {
-    try {
-      const usersRef = collection(db, "users");
-      const q = query(usersRef, where("username", "==", value.toLowerCase()), limit(1));
-      const snapshot = await getDocs(q);
-      return snapshot.empty; // true if available
-    } catch (err) {
-      console.error("Error checking username availability:", err);
-      // Default to true so they can submit, and we'll catch any real 
-      // duplicate issues if/when we implement strict backend checks.
-      return true; 
-    }
-  }
-
-  function handleUsernameChange() {
-    window.clearTimeout(usernameCheckTimer);
-    usernameError.hidden = true;
-    usernameField.classList.remove("has-error");
-    usernameIsAvailable = false;
-    usernameChecking = false;
-
-    const value = usernameInput.value;
-
-    if (!value) {
-      usernameHint.textContent = "3–20 characters: letters, numbers, and underscores.";
-      usernameHint.className = "field__hint";
-      setUsernameStatusIcon(null);
-      return;
-    }
-
-    if (!USERNAME_RE.test(value)) {
-      usernameHint.textContent =
-        value.length < 3
-          ? "At least 3 characters, starting with a letter."
-          : "Letters, numbers, and underscores only.";
-      usernameHint.className = "field__hint is-invalid";
-      setUsernameStatusIcon(null);
-      return;
-    }
-
-    usernameHint.textContent = "Checking availability…";
-    usernameHint.className = "field__hint is-checking";
-    setUsernameStatusIcon("checking");
-    usernameChecking = true;
-
-    const token = ++usernameCheckToken;
-    usernameCheckTimer = window.setTimeout(async () => {
-      const available = await checkUsernameAvailable(value);
-      if (token !== usernameCheckToken) return; // a newer keystroke superseded this check
-
-      usernameChecking = false;
-      usernameIsAvailable = available;
-      if (available) {
-        usernameHint.textContent = `@${value} is available.`;
-        usernameHint.className = "field__hint is-available";
-        setUsernameStatusIcon("available");
-      } else {
-        usernameHint.textContent = "That username is already taken.";
-        usernameHint.className = "field__hint is-taken";
-        setUsernameStatusIcon("taken");
-      }
-    }, 400);
-  }
 
   /* ---------------------------------------------------------------------
      Password visibility toggle
@@ -254,21 +134,6 @@ onAuthStateChanged(auth, (user) => {
     } else {
       clearFieldError(nameField, nameError);
     }
-
-    if (!USERNAME_RE.test(usernameInput.value)) {
-      setFieldError(usernameField, usernameError, "Choose a valid username first.");
-      isValid = false;
-    } else if (usernameChecking) {
-      setFieldError(usernameField, usernameError, "Still checking that username — one moment.");
-      isValid = false;
-    } else if (!usernameIsAvailable) {
-      setFieldError(usernameField, usernameError, "That username isn't available.");
-      isValid = false;
-    } else {
-      usernameField.classList.remove("has-error");
-      usernameError.hidden = true;
-    }
-
     if (!EMAIL_RE.test(emailInput.value.trim())) {
       setFieldError(emailField, emailError, "Enter a valid email address.");
       isValid = false;
@@ -330,17 +195,16 @@ onAuthStateChanged(auth, (user) => {
     formError.hidden = false;
   }
 
-  async function firebaseSignup(name, username, email, password) {
+  async function firebaseSignup(name, email, password) {
     // Create auth user
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const uid = userCredential.user.uid;
     // Save display name on Auth profile
     await updateProfile(userCredential.user, { displayName: name });
-    // Save everything to Firestore
+    // Save everything to Firestore (without username for now)
     await setDoc(doc(db, "users", uid), {
       uid,
       name,
-      username: username.toLowerCase(),
       email,
       createdAt: new Date().toISOString(),
     });
@@ -357,7 +221,6 @@ onAuthStateChanged(auth, (user) => {
     try {
         await firebaseSignup(
             nameInput.value.trim(),
-            usernameInput.value,
             emailInput.value.trim(),
             passwordInput.value
         );
@@ -401,8 +264,9 @@ onAuthStateChanged(auth, (user) => {
   async function googleAuthAndCreateProfile() {
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: "select_account" });
-    // Popup opens, user picks account, onAuthStateChanged fires and redirects to app.html
+    // Popup opens, user picks account
     await signInWithPopup(auth, provider);
+    window.location.href = "app.html";
   }
 
   function setGoogleLoading(isLoading) {
