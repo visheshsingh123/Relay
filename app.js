@@ -35,7 +35,6 @@ import {
   const backBtn = document.getElementById("backBtn");
   const chatEl = document.getElementById("chat");
   const chatHeaderEl = document.getElementById("chatHeader");
-  const chatEmptyEl = document.getElementById("chatEmpty");
   const chatMenu = document.getElementById("chatMenu");
   const chatMenuBtn = document.getElementById("chatMenuBtn");
   const chatMenuDropdown = document.getElementById("chatMenuDropdown");
@@ -225,7 +224,6 @@ import {
      Chat pane vs. empty state
      --------------------------------------------------------------------- */
   function showChatPane() {
-    chatEmptyEl.hidden = true;
     chatHeaderEl.hidden = false;
     threadEl.hidden = false;
     composer.hidden = false;
@@ -235,7 +233,6 @@ import {
     chatHeaderEl.hidden = true;
     threadEl.hidden = true;
     composer.hidden = true;
-    chatEmptyEl.hidden = false;
   }
 
   /* ---------------------------------------------------------------------

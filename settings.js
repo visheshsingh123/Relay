@@ -4,9 +4,10 @@
    real Supabase Auth / profiles calls later.
    ========================================================================== */
 
-import { auth, db } from "./firebase-config.js";
+import { auth, db, storage } from "./firebase-config.js";
 import { signOut, onAuthStateChanged, updateEmail, updatePassword, updateProfile, deleteUser } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { doc, getDoc, setDoc, deleteDoc, collection, query, where, limit, getDocs } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-storage.js";
 
 (() => {
   "use strict";
@@ -17,6 +18,7 @@ import { doc, getDoc, setDoc, deleteDoc, collection, query, where, limit, getDoc
   const form = document.getElementById("settingsForm");
   const avatarEl = document.getElementById("settingsAvatar");
   const changePhotoBtn = document.getElementById("changePhotoBtn");
+  const photoInput = document.getElementById("photoInput");
 
   const fullNameInput = document.getElementById("fullName");
   const usernameInput = document.getElementById("username");
@@ -43,6 +45,14 @@ import { doc, getDoc, setDoc, deleteDoc, collection, query, where, limit, getDoc
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const USERNAME_RE = /^[a-zA-Z][a-zA-Z0-9_]{2,19}$/;
 
+  function setAvatarImage(url) {
+    avatarEl.textContent = "";
+    avatarEl.style.backgroundImage = `url('${url}')`;
+    avatarEl.style.backgroundSize = "cover";
+    avatarEl.style.backgroundPosition = "center";
+    avatarEl.style.color = "transparent";
+  }
+
   /* ---------------------------------------------------------------------
      Hydrate the form with the current profile
      --------------------------------------------------------------------- */
@@ -52,7 +62,6 @@ import { doc, getDoc, setDoc, deleteDoc, collection, query, where, limit, getDoc
       return;
     }
 
-    // Always set email from Auth immediately
     emailInput.value = user.email || "";
     fullNameInput.value = user.displayName || "";
 
@@ -63,15 +72,60 @@ import { doc, getDoc, setDoc, deleteDoc, collection, query, where, limit, getDoc
         fullNameInput.value = data.name || user.displayName || "";
         usernameInput.value = data.username || "";
         emailInput.value = data.email || user.email || "";
+        
+        if (data.photoURL) {
+          setAvatarImage(data.photoURL);
+        }
       }
     } catch (err) {
       console.error("Error fetching profile:", err);
     }
   });
 
-  // Demo-only: photo upload isn't wired to storage yet.
+  // Photo upload
   changePhotoBtn.addEventListener("click", () => {
-    window.alert("Photo uploads aren't part of this demo yet.");
+    photoInput.click();
+  });
+
+  photoInput.addEventListener("change", async () => {
+    const file = photoInput.files[0];
+    if (!file) return;
+
+    // Validate file size (max 5MB)
+    if (file.size > 5 * 1024 * 1024) {
+      alert("Image must be under 5MB.");
+      return;
+    }
+
+    const user = auth.currentUser;
+    if (!user) return;
+
+    changePhotoBtn.textContent = "Uploading...";
+    changePhotoBtn.disabled = true;
+
+    try {
+      // Upload to Firebase Storage
+      const storageRef = ref(storage, `profilePictures/${user.uid}`);
+      await uploadBytes(storageRef, file);
+      const downloadURL = await getDownloadURL(storageRef);
+
+      // Save URL to Auth profile
+      await updateProfile(user, { photoURL: downloadURL });
+
+      // Save URL to Firestore
+      await setDoc(doc(db, "users", user.uid), { photoURL: downloadURL }, { merge: true });
+
+      // Update avatar on the page
+      setAvatarImage(downloadURL);
+
+      changePhotoBtn.textContent = "Change photo";
+      changePhotoBtn.disabled = false;
+    } catch (err) {
+      console.error("Error uploading photo:", err);
+      alert("Failed to upload photo. Please try again.");
+      changePhotoBtn.textContent = "Change photo";
+      changePhotoBtn.disabled = false;
+    }
   });
 
   /* ---------------------------------------------------------------------
