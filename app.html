@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#0D0B14">
+<title>Relay — Messages</title>
+<link rel="icon" type="image/png" href="Assets/logo.png">
+<link rel="manifest" href="manifest.json">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<div class="app" id="app">
+
+  <!-- ============ SIDEBAR : CONVERSATION LIST ============ -->
+  <aside class="sidebar" id="sidebar" aria-label="Conversations">
+
+    <header class="sidebar__header">
+      <h1 class="logo">Relay<span class="logo__dot">.</span></h1>
+
+      <div class="sidebar__actions">
+        <button class="icon-btn" id="searchToggle" aria-label="Search conversations" aria-expanded="false">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
+            <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/>
+            <line x1="20" y1="20" x2="15.8" y2="15.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+
+        <button class="avatar-badge" id="myProfileBtn" aria-label="Your profile, Vivian Serrano, @vivian">
+          <span class="avatar avatar--me" id="myAvatarInitials">VS</span>
+        </button>
+      </div>
+    </header>
+
+    <div class="search-bar" id="searchBar" hidden>
+      <input type="search" id="searchInput" placeholder="Search by name or @username" aria-label="Search by name or username">
+    </div>
+
+    <nav class="conv-list" id="convList" aria-label="Conversation list">
+      <!-- Conversation items injected by app.js -->
+    </nav>
+
+    <button class="fab" id="newChatBtn" aria-label="Start a new conversation">
+      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true">
+        <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+        <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+      </svg>
+    </button>
+  </aside>
+
+  <!-- ============ MAIN : ACTIVE CHAT THREAD ============ -->
+  <main class="chat" id="chat" aria-label="Chat thread">
+
+    <header class="chat__header" id="chatHeader">
+      <button class="icon-btn back-btn" id="backBtn" aria-label="Back to conversation list">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true">
+          <path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <div class="chat__identity">
+        <span class="avatar avatar--md" id="chatAvatar">JD</span>
+        <div class="chat__who">
+          <span class="chat__name" id="chatName">John Doe</span>
+          <span class="chat__status" id="chatStatus">
+            <span class="chat__handle">@johndoe</span>
+          </span>
+        </div>
+      </div>
+
+      <div class="chat__actions">
+        <button class="icon-btn" aria-label="More options">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
+            <circle cx="5" cy="12" r="1.7" fill="currentColor"/>
+            <circle cx="12" cy="12" r="1.7" fill="currentColor"/>
+            <circle cx="19" cy="12" r="1.7" fill="currentColor"/>
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="thread" id="thread" aria-live="polite">
+      <!-- Message bubbles injected by app.js -->
+    </div>
+
+    <form class="composer" id="composer">
+      <button type="button" class="icon-btn composer__attach" aria-label="Attach a photo or file">
+        <svg viewBox="0 0 24 24" width="21" height="21" fill="none" aria-hidden="true">
+          <path d="M16.5 6.5l-7.6 7.6a3 3 0 0 0 4.24 4.25l8.13-8.13a5 5 0 0 0-7.07-7.07l-8.13 8.13a7 7 0 0 0 9.9 9.9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </button>
+
+      <label class="sr-only" for="messageInput">Type a message</label>
+      <input type="text" id="messageInput" class="composer__input" placeholder="Start typing…" autocomplete="off">
+
+      <button type="submit" class="send-btn" id="sendBtn" aria-label="Send message" disabled>
+        <svg viewBox="0 0 24 24" width="19" height="19" fill="none" aria-hidden="true">
+          <path d="M4 12l16-7-6.5 16-2.6-6.9L4 12z" fill="currentColor"/>
+        </svg>
+      </button>
+    </form>
+  </main>
+
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>

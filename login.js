@@ -129,7 +129,7 @@
       await fakeAuthRequest(emailInput.value.trim(), passwordInput.value);
       submitLabel.textContent = "Success — redirecting…";
       window.setTimeout(() => {
-        window.location.href = "index.html";
+        window.location.href = "app.html";
       }, 500);
     } catch (err) {
       setLoading(false);
