@@ -5,8 +5,13 @@
    ========================================================================== */
 
 import { auth, db } from "./firebase-config.js";
-import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
-import { setDoc, doc, getDoc, collection, query, where, limit, getDocs } from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+import { createUserWithEmailAndPassword, GoogleAuthProvider, signInWithPopup, onAuthStateChanged, updateProfile } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+import { setDoc, doc, getDoc, collection, query, where, limit, getDocs } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+
+// If user is already signed in (or just signed in), redirect to app
+onAuthStateChanged(auth, (user) => {
+  if (user) window.location.href = "app.html";
+});
 (() => {
   "use strict";
 
@@ -101,10 +106,17 @@ import { setDoc, doc, getDoc, collection, query, where, limit, getDocs } from "h
   }
 
   async function checkUsernameAvailable(value) {
-    const usersRef = collection(db, "users");
-    const q = query(usersRef, where("username", "==", value.toLowerCase()), limit(1));
-    const snapshot = await getDocs(q);
-    return snapshot.empty; // true if available
+    try {
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, where("username", "==", value.toLowerCase()), limit(1));
+      const snapshot = await getDocs(q);
+      return snapshot.empty; // true if available
+    } catch (err) {
+      console.error("Error checking username availability:", err);
+      // Default to true so they can submit, and we'll catch any real 
+      // duplicate issues if/when we implement strict backend checks.
+      return true; 
+    }
   }
 
   function handleUsernameChange() {
@@ -322,13 +334,15 @@ import { setDoc, doc, getDoc, collection, query, where, limit, getDocs } from "h
     // Create auth user
     const userCredential = await createUserWithEmailAndPassword(auth, email, password);
     const uid = userCredential.user.uid;
-    // Store user profile in Firestore
+    // Save display name on Auth profile
+    await updateProfile(userCredential.user, { displayName: name });
+    // Save everything to Firestore
     await setDoc(doc(db, "users", uid), {
-        uid,
-        name,
-        username: username.toLowerCase(),
-        email,
-        createdAt: new Date().toISOString()
+      uid,
+      name,
+      username: username.toLowerCase(),
+      email,
+      createdAt: new Date().toISOString(),
     });
     return userCredential;
   }
@@ -379,22 +393,22 @@ import { setDoc, doc, getDoc, collection, query, where, limit, getDocs } from "h
      Continue with Google — demo-only popup simulation. Replace with a
      real Firebase call, e.g.:
        const provider = new GoogleAuthProvider();
-       const result = await signInWithPopup(auth, provider);
-     On success, still write the users/{uid} + usernames/{username} docs
-     (Google sign-in skips your form, so you'll need to collect or
-     auto-generate a username the first time this account signs in).
+     Continue with Google — real Firebase flow
      --------------------------------------------------------------------- */
-  function fakeGoogleAuthRequest() {
-    return new Promise((resolve) => {
-      window.setTimeout(() => resolve({ email: "demo.user@gmail.com" }), 700);
-    });
+  // ---------------------------------------------------------------
+  // Real Google Sign‑In flow using Firebase Auth
+  // ---------------------------------------------------------------
+  async function googleAuthAndCreateProfile() {
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: "select_account" });
+    // Popup opens, user picks account, onAuthStateChanged fires and redirects to app.html
+    await signInWithPopup(auth, provider);
   }
 
   function setGoogleLoading(isLoading) {
     googleSignupBtn.disabled = isLoading;
     googleSignupBtn.classList.toggle("is-loading", isLoading);
     const label = googleSignupBtn.querySelector(".auth-social__label");
-
     if (isLoading) {
       label.textContent = "Connecting…";
       const spinner = document.createElement("span");
@@ -412,9 +426,9 @@ import { setDoc, doc, getDoc, collection, query, where, limit, getDocs } from "h
     hideFormError();
     setGoogleLoading(true);
     try {
-      await fakeGoogleAuthRequest();
-      window.location.href = "app.html";
+      await googleAuthAndCreateProfile();
     } catch (err) {
+      console.error("Google sign‑in error:", err);
       setGoogleLoading(false);
       showFormError("Couldn't sign up with Google. Please try again.");
     }

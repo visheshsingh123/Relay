@@ -195,8 +195,11 @@ input:focus-visible,
   border-radius: var(--radius-full);
   font-weight: 700;
   letter-spacing: 0.01em;
-  color: var(--text-primary);
-  background: linear-gradient(155deg, #4C3B85, #2C2247);
+  color: transparent; /* hide initials */
+  background-image: url('Assets/pfp.jpg');
+  background-size: cover;
+  background-position: center;
+  background-color: var(--bg-surface-raised);
   flex-shrink: 0;
 }
 .avatar--sm { width: 40px; height: 40px; font-size: var(--fs-xs); }

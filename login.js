@@ -12,14 +12,14 @@ import {
   GoogleAuthProvider,
   signInWithPopup,
   onAuthStateChanged,
-} from "https://www.gstatic.com/firebasejs/10.13.2/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import {
   collection,
   query,
   where,
   limit,
   getDocs,
-} from "https://www.gstatic.com/firebasejs/10.13.2/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 (() => {
   "use strict";
@@ -226,13 +226,8 @@ import {
     hideFormError();
     setGoogleLoading(true);
     try {
-      const result = await signInWithPopup(auth, googleProvider);
-
-      const usersRef = collection(db, "users");
-      const q = query(usersRef, where("uid", "==", result.user.uid), limit(1));
-      const snapshot = await getDocs(q);
-
-      window.location.href = snapshot.empty ? "signup.html" : "app.html";
+      await signInWithPopup(auth, googleProvider);
+      // onAuthStateChanged handles redirect to app.html
     } catch (err) {
       setGoogleLoading(false);
       if (err.code === "auth/popup-closed-by-user") return;

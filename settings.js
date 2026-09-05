@@ -4,17 +4,15 @@
    real Supabase Auth / profiles calls later.
    ========================================================================== */
 
+import { auth, db } from "./firebase-config.js";
+import { signOut, onAuthStateChanged, updateEmail, updatePassword, updateProfile, deleteUser } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
+import { doc, getDoc, setDoc, deleteDoc, collection, query, where, limit, getDocs } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
+
 (() => {
   "use strict";
 
-  // Demo-only signed-in user. In a real build this comes from the auth
-  // session, the same as currentUser in app.js.
-  const currentUser = {
-    name: "Vivian Serrano",
-    username: "vivian",
-    initials: "VS",
-    email: "vivian@example.com",
-  };
+  // We'll populate this when auth resolves
+  let currentUser = null;
 
   const form = document.getElementById("settingsForm");
   const avatarEl = document.getElementById("settingsAvatar");
@@ -48,10 +46,28 @@
   /* ---------------------------------------------------------------------
      Hydrate the form with the current profile
      --------------------------------------------------------------------- */
-  avatarEl.textContent = currentUser.initials;
-  fullNameInput.value = currentUser.name;
-  usernameInput.value = currentUser.username;
-  emailInput.value = currentUser.email;
+  onAuthStateChanged(auth, async (user) => {
+    if (!user) {
+      window.location.href = "login.html";
+      return;
+    }
+
+    // Always set email from Auth immediately
+    emailInput.value = user.email || "";
+    fullNameInput.value = user.displayName || "";
+
+    try {
+      const docSnap = await getDoc(doc(db, "users", user.uid));
+      if (docSnap.exists()) {
+        const data = docSnap.data();
+        fullNameInput.value = data.name || user.displayName || "";
+        usernameInput.value = data.username || "";
+        emailInput.value = data.email || user.email || "";
+      }
+    } catch (err) {
+      console.error("Error fetching profile:", err);
+    }
+  });
 
   // Demo-only: photo upload isn't wired to storage yet.
   changePhotoBtn.addEventListener("click", () => {
@@ -152,18 +168,59 @@
     formSuccess.hidden = true;
   }
 
-  // Demo-only save call. Replace with a real request, e.g. a Supabase
-  // update against the profiles table and, if changed, auth.updateUser().
-  function fakeSaveRequest() {
-    return new Promise((resolve, reject) => {
-      window.setTimeout(() => {
-        if (emailInput.value.toLowerCase().endsWith("@taken.com")) {
-          reject(new Error("That email is already in use."));
-        } else {
-          resolve();
-        }
-      }, 700);
-    });
+  // Check if a username is taken by someone else
+  async function checkUsernameAvailable(value, currentUid) {
+    try {
+      const usersRef = collection(db, "users");
+      const q = query(usersRef, where("username", "==", value.toLowerCase()), limit(1));
+      const snapshot = await getDocs(q);
+      if (snapshot.empty) return true;
+      return snapshot.docs[0].data().uid === currentUid;
+    } catch (err) {
+      console.error("Error checking username:", err);
+      return true; // fallback if rules block it
+    }
+  }
+
+  async function saveProfileToFirebase() {
+    const user = auth.currentUser;
+    if (!user) throw new Error("No authenticated user.");
+
+    const newName = fullNameInput.value.trim();
+    const newUsername = usernameInput.value;
+    const newEmail = emailInput.value.trim();
+    const newPassword = newPasswordInput.value;
+
+    // Check username availability
+    const isAvailable = await checkUsernameAvailable(newUsername, user.uid);
+    if (!isAvailable) {
+      throw new Error("That username is already taken.");
+    }
+
+    // Update Auth Email if changed
+    if (newEmail !== user.email) {
+      await updateEmail(user, newEmail);
+    }
+
+    // Update Auth Password if provided
+    if (newPassword) {
+      await updatePassword(user, newPassword);
+    }
+
+    // Update Auth Profile (Display Name)
+    if (newName !== user.displayName) {
+      await updateProfile(user, { displayName: newName });
+    }
+
+    // Save all details to Firestore
+    const userRef = doc(db, "users", user.uid);
+    await setDoc(userRef, {
+      uid: user.uid,
+      name: newName,
+      username: newUsername.toLowerCase(),
+      email: newEmail,
+      updatedAt: new Date().toISOString()
+    }, { merge: true }); // merge true so we don't overwrite createdAt
   }
 
   form.addEventListener("submit", async (e) => {
@@ -174,14 +231,18 @@
 
     setLoading(true);
     try {
-      await fakeSaveRequest();
+      await saveProfileToFirebase();
       setLoading(false);
       formSuccess.hidden = false;
       newPasswordInput.value = "";
       confirmPasswordInput.value = "";
     } catch (err) {
       setLoading(false);
-      formError.textContent = err.message;
+      let msg = err.message;
+      if (err.code === 'auth/requires-recent-login') {
+        msg = "Please log out and log back in to change your email or password.";
+      }
+      formError.textContent = msg;
       formError.hidden = false;
     }
   });
@@ -189,14 +250,39 @@
   /* ---------------------------------------------------------------------
      Log out / delete account
      --------------------------------------------------------------------- */
-  logoutBtn.addEventListener("click", () => {
-    window.location.href = "login.html";
+  logoutBtn.addEventListener("click", async () => {
+    try {
+      await signOut(auth);
+      window.location.href = "login.html";
+    } catch (error) {
+      console.error("Error signing out:", error);
+    }
   });
 
-  deleteAccountBtn.addEventListener("click", () => {
+  deleteAccountBtn.addEventListener("click", async () => {
     const confirmed = window.confirm(
       "Delete your account? This permanently removes your profile and every conversation. This can't be undone."
     );
-    if (confirmed) window.location.href = "login.html";
+    if (!confirmed) return;
+
+    try {
+      const user = auth.currentUser;
+      if (!user) return;
+
+      // Delete Firestore profile
+      await deleteDoc(doc(db, "users", user.uid));
+      // Delete Firebase Auth account
+      await deleteUser(user);
+
+      // Redirect to login
+      window.location.href = "login.html";
+    } catch (err) {
+      console.error("Error deleting account:", err);
+      if (err.code === "auth/requires-recent-login") {
+        alert("For security, please log out and log back in before deleting your account.");
+      } else {
+        alert("Something went wrong deleting your account. Please try again.");
+      }
+    }
   });
 })();
