@@ -417,6 +417,7 @@ input:focus-visible,
 }
 
 .chat__handle { color: var(--text-muted); }
+.chat__status.is-online { color: var(--online); font-weight: 500; }
 .chat__status-sep { color: var(--border-hairline); }
 
 .status-dot {

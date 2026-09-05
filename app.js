@@ -16,12 +16,15 @@ import {
   let firebaseUser = null;
   let firebaseProfile = null;
   
-  let chats = []; // Store active chats for sidebar
-  let currentMessages = []; // Store messages for active chat
+  let chats = [];
+  let currentMessages = [];
   
   let activeChatId = null;
-  let activeChatUser = null; // Store the "other" user's info for header
+  let activeChatUser = null;
   let messagesUnsubscribe = null;
+  let otherUserUnsubscribe = null; // listener for other user's online status
+  let chatDocUnsubscribe = null;   // listener for typing indicator
+  let typingTimeout = null;        // debounce timer for typing
 
   /* ---------------------------------------------------------------------
      Element refs
@@ -185,10 +188,30 @@ import {
   /* ---------------------------------------------------------------------
      Render: chat header
      --------------------------------------------------------------------- */
+  function formatLastSeen(timestamp) {
+    if (!timestamp) return "";
+    const date = timestamp.toDate ? timestamp.toDate() : new Date(timestamp);
+    const now = new Date();
+    const diffMs = now - date;
+    const diffMins = Math.floor(diffMs / 60000);
+    
+    if (diffMins < 1) return "Last seen just now";
+    if (diffMins < 60) return `Last seen ${diffMins}m ago`;
+    
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) return `Last seen ${diffHours}h ago`;
+    
+    return `Last seen ${date.toLocaleDateString()}`;
+  }
+
   function renderChatHeader(otherUser) {
     chatNameEl.textContent = otherUser.name;
     chatAvatarEl.textContent = getInitials(otherUser.name);
     chatStatusEl.innerHTML = `<span class="chat__handle">@${escapeHtml(otherUser.username)}</span>`;
+  }
+  
+  function updateChatStatus(statusText, isOnline) {
+    chatStatusEl.innerHTML = `<span class="chat__status ${isOnline ? 'is-online' : ''}">${escapeHtml(statusText)}</span>`;
   }
 
   /* ---------------------------------------------------------------------
@@ -208,15 +231,44 @@ import {
 
     messageInput.focus({ preventScroll: true });
     
-    // Subscribe to messages
+    // Unsubscribe from previous listeners
     if (messagesUnsubscribe) messagesUnsubscribe();
+    if (otherUserUnsubscribe) otherUserUnsubscribe();
+    if (chatDocUnsubscribe) chatDocUnsubscribe();
     
+    // Subscribe to messages
     const messagesRef = collection(db, "chats", id, "messages");
     const q = query(messagesRef, orderBy("createdAt", "asc"));
     
     messagesUnsubscribe = onSnapshot(q, (snapshot) => {
         currentMessages = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
         renderThread();
+    });
+    
+    // Subscribe to the other user's online/lastSeen status
+    otherUserUnsubscribe = onSnapshot(doc(db, "users", otherUser.uid), (snap) => {
+        if (!snap.exists()) return;
+        const data = snap.data();
+        
+        // Check if other user is typing (from chat doc listener below)
+        // This listener handles online/lastSeen only
+        if (data.online) {
+            updateChatStatus("Online", true);
+        } else {
+            updateChatStatus(formatLastSeen(data.lastSeen), false);
+        }
+    });
+    
+    // Subscribe to chat doc for typing indicator
+    chatDocUnsubscribe = onSnapshot(doc(db, "chats", id), (snap) => {
+        if (!snap.exists()) return;
+        const data = snap.data();
+        const typing = data.typing || {};
+        
+        if (typing[otherUser.uid]) {
+            updateChatStatus("Typing...", true);
+        }
+        // If not typing, the otherUser listener above handles the status
     });
   }
 
@@ -321,10 +373,24 @@ import {
   /* ---------------------------------------------------------------------
      Composer: enable/disable send button, submit new message
      --------------------------------------------------------------------- */
+  async function setTyping(isTyping) {
+    if (!activeChatId || !firebaseUser) return;
+    try {
+      await updateDoc(doc(db, "chats", activeChatId), {
+        [`typing.${firebaseUser.uid}`]: isTyping
+      });
+    } catch (e) { /* ignore */ }
+  }
+
   messageInput.addEventListener("input", () => {
     const hasText = messageInput.value.trim().length > 0;
     sendBtn.disabled = !hasText;
     sendBtn.classList.toggle("is-active", hasText);
+    
+    // Typing indicator
+    setTyping(true);
+    clearTimeout(typingTimeout);
+    typingTimeout = setTimeout(() => setTyping(false), 2000);
   });
 
   composer.addEventListener("submit", async (e) => {
@@ -332,11 +398,13 @@ import {
     const text = messageInput.value.trim();
     if (!text || !activeChatId) return;
 
-    const chatId = activeChatId; // capture current
+    const chatId = activeChatId;
     messageInput.value = "";
     sendBtn.disabled = true;
     sendBtn.classList.remove("is-active");
     messageInput.focus();
+    setTyping(false);
+    clearTimeout(typingTimeout);
     
     try {
         // Add message
@@ -410,6 +478,31 @@ import {
   });
   
   function initializeApp() {
+      // Set user as online
+      setDoc(doc(db, "users", firebaseUser.uid), { 
+        online: true, 
+        lastSeen: serverTimestamp() 
+      }, { merge: true });
+      
+      // Set offline when leaving the page
+      window.addEventListener("beforeunload", () => {
+        navigator.sendBeacon || null; // fallback check
+        // Use a sync-safe approach
+        const userRef = doc(db, "users", firebaseUser.uid);
+        setDoc(userRef, { online: false, lastSeen: serverTimestamp() }, { merge: true });
+      });
+      
+      // Also handle visibility change (tab switch)
+      document.addEventListener("visibilitychange", () => {
+        if (!firebaseUser) return;
+        const userRef = doc(db, "users", firebaseUser.uid);
+        if (document.visibilityState === "hidden") {
+          setDoc(userRef, { online: false, lastSeen: serverTimestamp() }, { merge: true });
+        } else {
+          setDoc(userRef, { online: true, lastSeen: serverTimestamp() }, { merge: true });
+        }
+      });
+
       // Listen to chats
       const q = query(collection(db, "chats"), where("participants", "array-contains", firebaseUser.uid));
       onSnapshot(q, (snapshot) => {
@@ -419,7 +512,6 @@ import {
               return { id: doc.id, otherUid, ...data };
           });
           
-          // Sort chats in memory to avoid requiring a Firestore composite index
           chats.sort((a, b) => {
             const timeA = a.updatedAt ? (a.updatedAt.toMillis ? a.updatedAt.toMillis() : 0) : 0;
             const timeB = b.updatedAt ? (b.updatedAt.toMillis ? b.updatedAt.toMillis() : 0) : 0;
