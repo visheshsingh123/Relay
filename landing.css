@@ -371,3 +371,61 @@ main { display: block; }
   .closing-cta { padding-left: var(--sp-4); padding-right: var(--sp-4); }
   .landing-footer { padding: var(--sp-4); flex-direction: column; gap: var(--sp-3); }
 }
+
+/* ==========================================================================
+   App Download Buttons
+   ========================================================================== */
+.app-download-row {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  margin-top: var(--sp-5);
+  flex-wrap: wrap;
+}
+
+.btn-app-download {
+  height: 48px;
+  padding: 0 18px;
+  border-radius: var(--radius-md);
+  background: var(--bg-surface-raised);
+  border: 1px solid var(--border-hairline);
+  color: var(--text-primary);
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard),
+              border-color var(--duration-fast) var(--ease-standard),
+              transform var(--duration-fast) var(--ease-standard);
+  text-decoration: none;
+}
+
+.btn-app-download:hover {
+  background: var(--bg-surface);
+  border-color: rgba(156, 129, 245, 0.45);
+  transform: translateY(-1px);
+}
+.btn-app-download:active {
+  transform: scale(0.97);
+}
+
+.btn-app-download__text {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1.15;
+}
+
+.btn-app-download__sub {
+  font-size: 0.625rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+
+.btn-app-download__main {
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  color: var(--text-primary);
+}
