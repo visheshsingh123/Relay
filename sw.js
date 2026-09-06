@@ -117,3 +117,49 @@ self.addEventListener("fetch", (event) => {
     })
   );
 });
+
+/* ---------------------------------------------------------------------
+   Push & Notification Click Event Handlers
+   --------------------------------------------------------------------- */
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+
+  const targetUrl = (event.notification.data && event.notification.data.url)
+    ? event.notification.data.url
+    : "./index.html";
+
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      for (const client of clientList) {
+        if (client.url.includes("index.html") && "focus" in client) {
+          return client.focus();
+        }
+      }
+      if (clients.openWindow) {
+        return clients.openWindow(targetUrl);
+      }
+    })
+  );
+});
+
+self.addEventListener("push", (event) => {
+  let data = { title: "Relay", body: "You have a new message.", icon: "./Assets/icon-192.png" };
+  if (event.data) {
+    try {
+      data = { ...data, ...event.data.json() };
+    } catch (e) {
+      data.body = event.data.text();
+    }
+  }
+
+  event.waitUntil(
+    self.registration.showNotification(data.title, {
+      body: data.body,
+      icon: data.icon || "./Assets/icon-192.png",
+      badge: "./Assets/icon-192.png",
+      tag: data.tag || "relay-msg",
+      data: { url: "./index.html" },
+      vibrate: [100, 50, 100]
+    })
+  );
+});

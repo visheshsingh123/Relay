@@ -95,6 +95,37 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
     } catch (err) {
       console.error("Error fetching profile:", err);
     }
+
+    // Hydrate push notification setting
+    const pushNotificationsInput = document.getElementById("pushNotifications");
+    const pushNotificationsLabel = document.getElementById("pushNotificationsLabel");
+    if (pushNotificationsInput) {
+      if ("Notification" in window) {
+        pushNotificationsInput.checked = Notification.permission === "granted";
+        if (Notification.permission === "granted") {
+          pushNotificationsLabel.textContent = "Push Notifications Enabled";
+        } else if (Notification.permission === "denied") {
+          pushNotificationsLabel.textContent = "Push Notifications Blocked in Device Settings";
+          pushNotificationsInput.disabled = true;
+        }
+      } else {
+        pushNotificationsInput.disabled = true;
+        pushNotificationsLabel.textContent = "Push Notifications Not Supported";
+      }
+
+      pushNotificationsInput.addEventListener("change", async () => {
+        if (pushNotificationsInput.checked) {
+          const permission = await Notification.requestPermission();
+          pushNotificationsInput.checked = permission === "granted";
+          if (permission === "granted") {
+            pushNotificationsLabel.textContent = "Push Notifications Enabled";
+          } else if (permission === "denied") {
+            pushNotificationsLabel.textContent = "Push Notifications Blocked in Device Settings";
+            pushNotificationsInput.disabled = true;
+          }
+        }
+      });
+    }
   });
 
   function compressImage(file, maxWidth = 250, maxHeight = 250, quality = 0.82) {

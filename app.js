@@ -653,6 +653,41 @@ import {
 
   searchInput.addEventListener("input", () => renderConvList(searchInput.value));
 
+  /* ---------------------------------------------------------------------
+     Mobile / Web Notifications
+     --------------------------------------------------------------------- */
+  async function requestNotificationPermission() {
+    if ("Notification" in window && Notification.permission === "default") {
+      try {
+        await Notification.requestPermission();
+      } catch (e) { /* ignore */ }
+    }
+  }
+
+  function triggerMessageNotification(senderName, text, chatId) {
+    if (!("Notification" in window) || Notification.permission !== "granted") return;
+
+    const options = {
+      body: text || "Sent you a message",
+      icon: "Assets/icon-192.png",
+      badge: "Assets/icon-192.png",
+      tag: chatId || "relay-msg",
+      data: { url: "index.html" },
+      vibrate: [100, 50, 100],
+      renotify: true
+    };
+
+    if ("serviceWorker" in navigator && navigator.serviceWorker.controller) {
+      navigator.serviceWorker.ready.then(reg => {
+        reg.showNotification(`Relay — ${senderName}`, options);
+      }).catch(() => {
+        new Notification(`Relay — ${senderName}`, options);
+      });
+    } else {
+      new Notification(`Relay — ${senderName}`, options);
+    }
+  }
+
   function updateWelcomeTitles() {
     if (!firebaseProfile) return;
     const name = firebaseProfile.name || firebaseProfile.username || "";
@@ -670,6 +705,7 @@ import {
       return;
     }
     firebaseUser = user;
+    requestNotificationPermission();
     
     // Fetch profile
     try {
@@ -738,14 +774,40 @@ import {
         }
       });
 
+      let previousUnreadCounts = {};
+      let isFirstChatsSnapshot = true;
+
       // Listen to chats
       const q = query(collection(db, "chats"), where("participants", "array-contains", firebaseUser.uid));
       onSnapshot(q, (snapshot) => {
-          chats = snapshot.docs.map(doc => {
+          const newChats = snapshot.docs.map(doc => {
               const data = doc.data();
               const otherUid = data.participants.find(id => id !== firebaseUser.uid);
               return { id: doc.id, otherUid, ...data };
           });
+          
+          // Check for incoming unread messages to trigger notifications
+          if (!isFirstChatsSnapshot) {
+            newChats.forEach(chat => {
+              const myUnread = (chat.unreadCounts && chat.unreadCounts[firebaseUser.uid]) || 0;
+              const prevUnread = previousUnreadCounts[chat.id] || 0;
+              
+              if (myUnread > prevUnread && (chat.id !== activeChatId || document.visibilityState === "hidden")) {
+                const otherUserData = chat.users ? chat.users[chat.otherUid] : null;
+                const senderName = otherUserData ? (otherUserData.name || `@${otherUserData.username}`) : "Someone";
+                const messageText = chat.lastMessage || "Sent you a message";
+                triggerMessageNotification(senderName, messageText, chat.id);
+              }
+            });
+          }
+
+          // Track unread counts
+          newChats.forEach(c => {
+            previousUnreadCounts[c.id] = (c.unreadCounts && c.unreadCounts[firebaseUser.uid]) || 0;
+          });
+          isFirstChatsSnapshot = false;
+
+          chats = newChats;
           
           chats.sort((a, b) => {
             const timeA = a.updatedAt ? (a.updatedAt.toMillis ? a.updatedAt.toMillis() : 0) : 0;
