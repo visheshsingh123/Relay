@@ -7,7 +7,7 @@ import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { 
   doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, limit, getDocs, 
-  onSnapshot, addDoc, serverTimestamp, orderBy, arrayUnion, arrayRemove 
+  onSnapshot, addDoc, serverTimestamp, orderBy, arrayUnion, arrayRemove, increment
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 (() => {
@@ -112,13 +112,16 @@ import {
       })
       .forEach((conv) => {
         const otherUser = { uid: conv.otherUid, ...conv.users[conv.otherUid] };
+        const unreadCount = (conv.unreadCounts && conv.unreadCounts[firebaseUser.uid]) || 0;
+
         const item = document.createElement("button");
         item.type = "button";
         item.className = "conv-item";
         item.dataset.id = conv.id;
         if (conv.id === activeChatId) item.classList.add("is-active");
+        if (unreadCount > 0 && conv.id !== activeChatId) item.classList.add("has-unread");
         
-        item.setAttribute("aria-label", `Open conversation with ${otherUser.name}`);
+        item.setAttribute("aria-label", `Open conversation with ${otherUser.name}${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`);
 
         const lastText = conv.lastMessage || "No messages yet";
         
@@ -127,6 +130,10 @@ import {
           const date = conv.updatedAt.toDate ? conv.updatedAt.toDate() : new Date(conv.updatedAt);
           timeStr = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
         }
+
+        const badgeHtml = (unreadCount > 0 && conv.id !== activeChatId)
+          ? `<span class="unread-badge" aria-label="${unreadCount} unread messages">${unreadCount > 99 ? "99+" : unreadCount}</span>`
+          : "";
 
         item.innerHTML = `
           <span class="avatar-wrap">
@@ -139,6 +146,7 @@ import {
             </span>
             <span class="conv-item__preview-row">
               <span class="conv-item__preview">${escapeHtml(lastText)}</span>
+              ${badgeHtml}
             </span>
           </span>
         `;
@@ -298,6 +306,11 @@ import {
     if (!MOBILE_QUERY.matches) {
       messageInput.focus({ preventScroll: true });
     }
+
+    // Clear unread count for this user when they open the chat
+    updateDoc(doc(db, "chats", id), {
+      [`unreadCounts.${firebaseUser.uid}`]: 0
+    }).catch(() => {});
     
     // Unsubscribe from previous listeners
     if (messagesUnsubscribe) messagesUnsubscribe();
@@ -571,10 +584,12 @@ import {
             read: false
         });
         
-        // Update parent chat
+        // Update parent chat doc: last message, timestamp, and recipient's unread count
+        const recipientUid = activeChatUser.uid || activeChatUser.id;
         await updateDoc(doc(db, "chats", chatId), {
             lastMessage: text,
-            updatedAt: serverTimestamp()
+            updatedAt: serverTimestamp(),
+            [`unreadCounts.${recipientUid}`]: increment(1)
         });
     } catch (err) {
         console.error("Error sending message:", err);
