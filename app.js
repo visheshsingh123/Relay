@@ -293,7 +293,11 @@ import {
       appEl.classList.add("is-chat-open");
     }
 
-    messageInput.focus({ preventScroll: true });
+    // Only auto-focus the input on desktop; on mobile, focusing
+    // immediately triggers the virtual keyboard which resizes the layout.
+    if (!MOBILE_QUERY.matches) {
+      messageInput.focus({ preventScroll: true });
+    }
     
     // Unsubscribe from previous listeners
     if (messagesUnsubscribe) messagesUnsubscribe();
@@ -548,7 +552,13 @@ import {
     messageInput.value = "";
     sendBtn.disabled = true;
     sendBtn.classList.remove("is-active");
-    messageInput.focus();
+    // On mobile, blurring the input dismisses the keyboard cleanly;
+    // re-focusing after send causes a keyboard pop + layout resize flash.
+    if (MOBILE_QUERY.matches) {
+      messageInput.blur();
+    } else {
+      messageInput.focus();
+    }
     setTyping(false);
     clearTimeout(typingTimeout);
     
@@ -676,11 +686,17 @@ import {
           });
           
           renderConvList(searchInput.value);
-          
-          if (chats.length > 0 && (!activeChatId || !chats.some(c => c.id === activeChatId))) {
-              const firstChat = chats[0];
-              selectConversation(firstChat.id, { uid: firstChat.otherUid, ...firstChat.users[firstChat.otherUid] });
-          } else if (chats.length === 0) {
+
+          if (chats.length === 0) {
+              // No chats at all — clear state and show empty screen
+              activeChatId = null;
+              activeChatUser = null;
+              if (messagesUnsubscribe) { messagesUnsubscribe(); messagesUnsubscribe = null; }
+              if (otherUserUnsubscribe) { otherUserUnsubscribe(); otherUserUnsubscribe = null; }
+              if (chatDocUnsubscribe) { chatDocUnsubscribe(); chatDocUnsubscribe = null; }
+              showEmptyState();
+          } else if (activeChatId && !chats.some(c => c.id === activeChatId)) {
+              // The chat the user had open was deleted — clear it
               activeChatId = null;
               activeChatUser = null;
               if (messagesUnsubscribe) { messagesUnsubscribe(); messagesUnsubscribe = null; }
@@ -688,6 +704,7 @@ import {
               if (chatDocUnsubscribe) { chatDocUnsubscribe(); chatDocUnsubscribe = null; }
               showEmptyState();
           }
+          // Otherwise: user hasn't opened a chat yet — stay on the conversation list
       });
       
       const params = new URLSearchParams(window.location.search);
