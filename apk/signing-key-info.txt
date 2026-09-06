@@ -1,0 +1,10 @@
+Keep this file and signing.keystore in a safe place. You'll need these files if you want to upload future versions of your PWA to the Google Play Store.
+
+Key store file: signing.keystore
+Key store password: 1Fqvzl6Kaiu0
+Key alias: my-key-alias
+Key password: 1Fqvzl6Kaiu0
+Signer's full name: Relay Admin
+Signer's organization: Relay
+Signer's organizational unit: Engineering
+Signer's country code: US
