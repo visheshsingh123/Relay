@@ -245,16 +245,30 @@ import {
     return Array.isArray(firebaseProfile.blockedUsers) && firebaseProfile.blockedUsers.includes(uid);
   }
 
+  function isBlockedByOther(otherUser) {
+    if (!otherUser || !otherUser.blockedUsers || !firebaseUser) return false;
+    return Array.isArray(otherUser.blockedUsers) && otherUser.blockedUsers.includes(firebaseUser.uid);
+  }
+
   function updateBlockedUI(otherUser) {
     if (!otherUser) return;
-    const isBlocked = isUserBlocked(otherUser.uid);
+    const iBlockedThem = isUserBlocked(otherUser.uid);
+    const theyBlockedMe = isBlockedByOther(otherUser);
+
     if (blockUserBtnLabel) {
-      blockUserBtnLabel.textContent = isBlocked ? "Unblock user" : "Block user";
+      blockUserBtnLabel.textContent = iBlockedThem ? "Unblock user" : "Block user";
     }
-    if (isBlocked) {
+
+    if (iBlockedThem) {
       messageInput.disabled = true;
       messageInput.value = "";
       messageInput.placeholder = `You blocked @${otherUser.username}. Unblock to message.`;
+      sendBtn.disabled = true;
+      sendBtn.classList.remove("is-active");
+    } else if (theyBlockedMe) {
+      messageInput.disabled = true;
+      messageInput.value = "";
+      messageInput.placeholder = "You cannot reply to this conversation.";
       sendBtn.disabled = true;
       sendBtn.classList.remove("is-active");
     } else {
@@ -295,18 +309,19 @@ import {
         renderThread();
     });
     
-    // Subscribe to the other user's profile changes & online/lastSeen status
+    // Subscribe to the other user's profile changes, online status & block status
     otherUserUnsubscribe = onSnapshot(doc(db, "users", otherUser.uid), (snap) => {
         if (!snap.exists()) return;
         const data = snap.data();
         
-        // Sync latest profile data (like photoURL)
-        if (data.photoURL !== otherUser.photoURL || data.name !== otherUser.name) {
-            otherUser.photoURL = data.photoURL || null;
-            otherUser.name = data.name || otherUser.name;
-            renderChatHeader(otherUser);
-            renderConvList(searchInput.value);
-        }
+        // Sync latest profile data (like photoURL & blockedUsers)
+        otherUser.photoURL = data.photoURL || null;
+        otherUser.name = data.name || otherUser.name;
+        otherUser.blockedUsers = data.blockedUsers || [];
+
+        renderChatHeader(otherUser);
+        renderConvList(searchInput.value);
+        updateBlockedUI(otherUser);
 
         if (data.online) {
             updateChatStatus("Online", true);
@@ -522,8 +537,8 @@ import {
 
   composer.addEventListener("submit", async (e) => {
     e.preventDefault();
-    if (activeChatUser && isUserBlocked(activeChatUser.uid)) {
-      alert("You cannot send messages to a blocked user. Unblock them first.");
+    if (activeChatUser && (isUserBlocked(activeChatUser.uid) || isBlockedByOther(activeChatUser))) {
+      alert("You cannot send messages in this conversation.");
       return;
     }
     const text = messageInput.value.trim();
