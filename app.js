@@ -296,6 +296,13 @@ import {
     activeChatId = id;
     activeChatUser = otherUser;
 
+    // Push or update history state so Android system back gesture / back button returns to conversation list
+    if (!history.state || !history.state.chatOpen) {
+      history.pushState({ chatOpen: true, chatId: id }, "");
+    } else if (history.state.chatId !== id) {
+      history.replaceState({ chatOpen: true, chatId: id }, "");
+    }
+
     renderConvList(searchInput.value);
     renderChatHeader(otherUser);
     updateBlockedUI(otherUser);
@@ -381,6 +388,17 @@ import {
     threadEl.hidden = true;
     composer.hidden = true;
     if (chatEmpty) chatEmpty.hidden = false;
+  }
+
+  function closeChatPane() {
+    appEl.classList.remove("is-chat-open");
+    activeChatId = null;
+    activeChatUser = null;
+    if (messagesUnsubscribe) { messagesUnsubscribe(); messagesUnsubscribe = null; }
+    if (otherUserUnsubscribe) { otherUserUnsubscribe(); otherUserUnsubscribe = null; }
+    if (chatDocUnsubscribe) { chatDocUnsubscribe(); chatDocUnsubscribe = null; }
+    renderConvList(searchInput.value);
+    showEmptyState();
   }
 
   /* ---------------------------------------------------------------------
@@ -489,6 +507,11 @@ import {
     closeChatMenu();
     if (activeChatId) {
       await deleteChat(activeChatId);
+      if (history.state && history.state.chatOpen) {
+        history.back();
+      } else {
+        closeChatPane();
+      }
     }
   });
 
@@ -525,10 +548,25 @@ import {
   }
 
   /* ---------------------------------------------------------------------
-     Mobile back navigation
+     Mobile back navigation & system back gesture (popstate)
      --------------------------------------------------------------------- */
   backBtn.addEventListener("click", () => {
-    appEl.classList.remove("is-chat-open");
+    if (history.state && history.state.chatOpen) {
+      history.back();
+    } else {
+      closeChatPane();
+    }
+  });
+
+  window.addEventListener("popstate", (e) => {
+    if (!e.state || !e.state.chatOpen) {
+      closeChatPane();
+    } else if (e.state && e.state.chatId && e.state.chatId !== activeChatId) {
+      const targetChat = chats.find(c => c.id === e.state.chatId);
+      if (targetChat && targetChat.otherUser) {
+        selectConversation(targetChat.id, targetChat.otherUser);
+      }
+    }
   });
 
   MOBILE_QUERY.addEventListener("change", (e) => {
