@@ -1,0 +1,5 @@
+<IfModule mod_headers.c>
+    <Files "assetlinks.json">
+        Header set Content-Type "application/json"
+    </Files>
+</IfModule>
