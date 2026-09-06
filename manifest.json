@@ -1,17 +1,26 @@
 {
+  "id": "/index.html",
   "name": "Relay",
   "short_name": "Relay",
   "description": "Real-time 1-to-1 messaging.",
   "start_url": "./index.html",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#0D0B14",
   "theme_color": "#0D0B14",
   "orientation": "portrait-primary",
   "icons": [
     {
-      "src": "Assets/logo.png",
-      "sizes": "512x512",
-      "type": "image/png"
+      "src": "Assets/icon.png",
+      "sizes": "500x500",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "Assets/icon.png",
+      "sizes": "500x500",
+      "type": "image/png",
+      "purpose": "maskable"
     }
   ]
 }
