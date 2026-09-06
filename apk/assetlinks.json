@@ -1,8 +1,8 @@
 [{
-      "relation": ["delegate_permission/common.handle_all_urls"],
-      "target": {
-        "namespace": "android_app",
-        "package_name": "app.vercel.getrelayed.twa",
-        "sha256_cert_fingerprints": ["51:CC:D4:49:71:47:FF:ED:35:CC:67:24:C0:8D:B3:20:5A:2D:D2:32:7C:BC:99:29:F3:20:F8:C8:2E:1B:12:3F"]
-      }
-    }]
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "app.vercel.relayapplication.twa",
+    "sha256_cert_fingerprints": ["29:50:AC:7A:FA:C8:13:D3:57:96:A0:16:C7:9C:87:88:A9:3C:F1:2D:12:AE:08:E3:CB:1C:D2:AF:9D:FE:C6:0C"]
+  }
+}]
