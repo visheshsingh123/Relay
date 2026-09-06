@@ -56,6 +56,8 @@
    ========================================================================== */
 *, *::before, *::after { box-sizing: border-box; }
 
+[hidden] { display: none !important; }
+
 html, body {
   height: 100%;
   width: 100%;
@@ -1567,7 +1569,7 @@ input:focus-visible,
   gap: 2px;
   padding: var(--sp-2) var(--sp-3);
 }
-.sidebar-skeleton[hidden] { display: none; }
+.sidebar-skeleton[hidden] { display: none !important; }
 
 .skeleton-conv-item {
   display: flex;
@@ -1596,7 +1598,7 @@ input:focus-visible,
   flex: 1;
   min-height: 0;
 }
-.chat-skeleton[hidden] { display: none; }
+.chat-skeleton[hidden] { display: none !important; }
 
 .chat-skeleton__header {
   height: var(--header-h);
