@@ -10,7 +10,7 @@ import { setDoc, doc, getDoc, collection, query, where, limit, getDocs } from "h
 
 // Only redirect on initial page load if already signed in
 const unsubscribe = onAuthStateChanged(auth, (user) => {
-  if (user) window.location.href = "app.html";
+  if (user) window.location.href = "index.html";
   unsubscribe();
 });
 (() => {
@@ -226,7 +226,7 @@ const unsubscribe = onAuthStateChanged(auth, (user) => {
         );
         submitLabel.textContent = "Account created — redirecting…";
         window.setTimeout(() => {
-            window.location.href = "app.html";
+            window.location.href = "index.html";
         }, 500);
     } catch (err) {
         setLoading(false);
@@ -266,7 +266,7 @@ const unsubscribe = onAuthStateChanged(auth, (user) => {
     provider.setCustomParameters({ prompt: "select_account" });
     // Popup opens, user picks account
     await signInWithPopup(auth, provider);
-    window.location.href = "app.html";
+    window.location.href = "index.html";
   }
 
   function setGoogleLoading(isLoading) {

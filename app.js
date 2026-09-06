@@ -739,7 +739,7 @@ import {
       const toUsername = params.get("to");
       if (toUsername) {
         startConversationWith(toUsername);
-        window.history.replaceState({}, "", "app.html");
+        window.history.replaceState({}, "", "index.html");
       }
   }
 

@@ -113,7 +113,7 @@ import { collection, query, where, limit, getDocs } from "https://www.gstatic.co
      Hand off to the chat app with the picked username
      --------------------------------------------------------------------- */
   function startConversation(user) {
-    window.location.href = `app.html?to=${encodeURIComponent(user.username)}`;
+    window.location.href = `index.html?to=${encodeURIComponent(user.username)}`;
   }
 
   searchInput.addEventListener("input", () => {

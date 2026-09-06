@@ -18,7 +18,6 @@ const SHELL_ASSETS = [
   "./index.html",
   "./login.html",
   "./signup.html",
-  "./app.html",
   "./adduser.html",
   "./settings.html",
   "./styles.css",
