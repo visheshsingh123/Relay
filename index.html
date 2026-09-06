@@ -181,8 +181,10 @@
   import { auth } from "./firebase-config.js";
   import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 
+  const isPWA = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone;
+
   const unsubscribe = onAuthStateChanged(auth, (user) => {
-    if (user) {
+    if (user || isPWA) {
       window.location.href = "app.html";
     }
     unsubscribe();
