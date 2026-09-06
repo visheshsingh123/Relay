@@ -77,9 +77,13 @@ import { collection, query, where, limit, getDocs } from "https://www.gstatic.co
         item.className = "conv-item";
         item.setAttribute("aria-label", `Start a conversation with ${user.name}, @${user.username}`);
 
+        const avatarHtml = user.photoURL 
+          ? `<span class="avatar avatar--sm" style="background-image: url('${escapeHtml(user.photoURL)}'); background-size: cover; background-position: center; color: transparent;">${getInitials(user.name)}</span>`
+          : `<span class="avatar avatar--sm">${getInitials(user.name)}</span>`;
+
         item.innerHTML = `
           <span class="avatar-wrap">
-            <span class="avatar avatar--sm">${getInitials(user.name)}</span>
+            ${avatarHtml}
           </span>
           <span class="conv-item__body">
             <span class="conv-item__name">${escapeHtml(user.name)}</span>

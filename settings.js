@@ -45,12 +45,27 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const USERNAME_RE = /^[a-zA-Z][a-zA-Z0-9_]{2,19}$/;
 
-  function setAvatarImage(url) {
-    avatarEl.textContent = "";
-    avatarEl.style.backgroundImage = `url('${url}')`;
-    avatarEl.style.backgroundSize = "cover";
-    avatarEl.style.backgroundPosition = "center";
-    avatarEl.style.color = "transparent";
+  function getInitials(name) {
+    if (!name) return "??";
+    const parts = name.trim().split(" ").filter(Boolean);
+    if (parts.length >= 2) {
+      return (parts[0][0] + parts[1][0]).toUpperCase();
+    }
+    return name.substring(0, 2).toUpperCase();
+  }
+
+  function setAvatarImage(url, name) {
+    if (url) {
+      avatarEl.textContent = "";
+      avatarEl.style.backgroundImage = `url('${url}')`;
+      avatarEl.style.backgroundSize = "cover";
+      avatarEl.style.backgroundPosition = "center";
+      avatarEl.style.color = "transparent";
+    } else {
+      avatarEl.textContent = getInitials(name);
+      avatarEl.style.backgroundImage = "none";
+      avatarEl.style.color = "";
+    }
   }
 
   /* ---------------------------------------------------------------------
@@ -64,23 +79,60 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
 
     emailInput.value = user.email || "";
     fullNameInput.value = user.displayName || "";
+    setAvatarImage(user.photoURL, user.displayName);
 
     try {
       const docSnap = await getDoc(doc(db, "users", user.uid));
       if (docSnap.exists()) {
         const data = docSnap.data();
-        fullNameInput.value = data.name || user.displayName || "";
+        const displayName = data.name || user.displayName || "";
+        fullNameInput.value = displayName;
         usernameInput.value = data.username || "";
         emailInput.value = data.email || user.email || "";
         
-        if (data.photoURL) {
-          setAvatarImage(data.photoURL);
-        }
+        setAvatarImage(data.photoURL || user.photoURL, displayName);
       }
     } catch (err) {
       console.error("Error fetching profile:", err);
     }
   });
+
+  function compressImage(file, maxWidth = 250, maxHeight = 250, quality = 0.82) {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onerror = reject;
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onerror = reject;
+        img.onload = () => {
+          const canvas = document.createElement("canvas");
+          let w = img.width;
+          let h = img.height;
+
+          if (w > h) {
+            if (w > maxWidth) {
+              h = Math.round((h * maxWidth) / w);
+              w = maxWidth;
+            }
+          } else {
+            if (h > maxHeight) {
+              w = Math.round((w * maxHeight) / h);
+              h = maxHeight;
+            }
+          }
+
+          canvas.width = w;
+          canvas.height = h;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, w, h);
+
+          resolve(canvas.toDataURL("image/jpeg", quality));
+        };
+        img.src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
 
   // Photo upload
   changePhotoBtn.addEventListener("click", () => {
@@ -91,40 +143,47 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
     const file = photoInput.files[0];
     if (!file) return;
 
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      alert("Image must be under 5MB.");
-      return;
-    }
-
     const user = auth.currentUser;
     if (!user) return;
 
-    changePhotoBtn.textContent = "Uploading...";
+    changePhotoBtn.textContent = "Processing...";
     changePhotoBtn.disabled = true;
 
     try {
-      // Upload to Firebase Storage
-      const storageRef = ref(storage, `profilePictures/${user.uid}`);
-      await uploadBytes(storageRef, file);
-      const downloadURL = await getDownloadURL(storageRef);
+      // 1. Compress image locally in browser (crisp 250x250 JPEG)
+      const dataUrl = await compressImage(file, 250, 250, 0.82);
+      let finalUrl = dataUrl;
 
-      // Save URL to Auth profile
-      await updateProfile(user, { photoURL: downloadURL });
+      // 2. Attempt Storage upload with 3s timeout fallback
+      try {
+        const storageRef = ref(storage, `profilePictures/${user.uid}`);
+        const uploadTask = uploadBytes(storageRef, file);
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error("Storage timeout")), 3500)
+        );
+        await Promise.race([uploadTask, timeoutPromise]);
+        finalUrl = await getDownloadURL(storageRef);
+      } catch (storageErr) {
+        console.warn("Storage upload skipped or timed out, using compressed inline photo URL:", storageErr);
+      }
 
-      // Save URL to Firestore
-      await setDoc(doc(db, "users", user.uid), { photoURL: downloadURL }, { merge: true });
+      // 3. Save URL to Auth profile & Firestore user doc
+      try {
+        await updateProfile(user, { photoURL: finalUrl.startsWith("data:") ? null : finalUrl });
+      } catch (e) { /* ignore */ }
 
-      // Update avatar on the page
-      setAvatarImage(downloadURL);
+      await setDoc(doc(db, "users", user.uid), { photoURL: finalUrl }, { merge: true });
 
-      changePhotoBtn.textContent = "Change photo";
-      changePhotoBtn.disabled = false;
+      // 4. Update avatar on current page instantly
+      setAvatarImage(finalUrl, fullNameInput.value);
+
     } catch (err) {
-      console.error("Error uploading photo:", err);
-      alert("Failed to upload photo. Please try again.");
+      console.error("Error processing photo:", err);
+      alert("Failed to process photo. Please try another image.");
+    } finally {
       changePhotoBtn.textContent = "Change photo";
       changePhotoBtn.disabled = false;
+      photoInput.value = "";
     }
   });
 

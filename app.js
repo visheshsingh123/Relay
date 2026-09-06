@@ -6,7 +6,7 @@
 import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { 
-  doc, getDoc, setDoc, updateDoc, collection, query, where, limit, getDocs, 
+  doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, limit, getDocs, 
   onSnapshot, addDoc, serverTimestamp, orderBy 
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
@@ -77,6 +77,14 @@ import {
     return name.substring(0, 2).toUpperCase();
   }
 
+  function renderAvatarHtml(user, sizeClass = "avatar--sm") {
+    const initials = getInitials(user ? (user.name || user.username || "") : "");
+    if (user && user.photoURL) {
+      return `<span class="avatar ${sizeClass}" style="background-image: url('${escapeHtml(user.photoURL)}'); background-size: cover; background-position: center; color: transparent;">${escapeHtml(initials)}</span>`;
+    }
+    return `<span class="avatar ${sizeClass}">${escapeHtml(initials)}</span>`;
+  }
+
   function createChatId(uid1, uid2) {
     return [uid1, uid2].sort().join("_");
   }
@@ -103,9 +111,6 @@ import {
         item.dataset.id = conv.id;
         if (conv.id === activeChatId) item.classList.add("is-active");
         
-        // TODO: proper unread logic later
-        // if (conv.unread > 0) item.classList.add("has-unread");
-        
         item.setAttribute("aria-label", `Open conversation with ${otherUser.name}`);
 
         const lastText = conv.lastMessage || "No messages yet";
@@ -118,7 +123,7 @@ import {
 
         item.innerHTML = `
           <span class="avatar-wrap">
-            <span class="avatar avatar--sm">${getInitials(otherUser.name)}</span>
+            ${renderAvatarHtml(otherUser, "avatar--sm")}
           </span>
           <span class="conv-item__body">
             <span class="conv-item__top">
@@ -132,6 +137,10 @@ import {
         `;
 
         item.addEventListener("click", () => selectConversation(conv.id, otherUser));
+        item.addEventListener("contextmenu", (e) => {
+          e.preventDefault();
+          deleteChat(conv.id);
+        });
         convListEl.appendChild(item);
       });
   }
@@ -206,7 +215,17 @@ import {
 
   function renderChatHeader(otherUser) {
     chatNameEl.textContent = otherUser.name;
-    chatAvatarEl.textContent = getInitials(otherUser.name);
+    if (otherUser && otherUser.photoURL) {
+      chatAvatarEl.textContent = "";
+      chatAvatarEl.style.backgroundImage = `url('${otherUser.photoURL}')`;
+      chatAvatarEl.style.backgroundSize = "cover";
+      chatAvatarEl.style.backgroundPosition = "center";
+      chatAvatarEl.style.color = "transparent";
+    } else {
+      chatAvatarEl.textContent = getInitials(otherUser.name);
+      chatAvatarEl.style.backgroundImage = "none";
+      chatAvatarEl.style.color = "";
+    }
     chatStatusEl.innerHTML = `<span class="chat__handle">@${escapeHtml(otherUser.username)}</span>`;
   }
   
@@ -245,13 +264,19 @@ import {
         renderThread();
     });
     
-    // Subscribe to the other user's online/lastSeen status
+    // Subscribe to the other user's profile changes & online/lastSeen status
     otherUserUnsubscribe = onSnapshot(doc(db, "users", otherUser.uid), (snap) => {
         if (!snap.exists()) return;
         const data = snap.data();
         
-        // Check if other user is typing (from chat doc listener below)
-        // This listener handles online/lastSeen only
+        // Sync latest profile data (like photoURL)
+        if (data.photoURL !== otherUser.photoURL || data.name !== otherUser.name) {
+            otherUser.photoURL = data.photoURL || null;
+            otherUser.name = data.name || otherUser.name;
+            renderChatHeader(otherUser);
+            renderConvList(searchInput.value);
+        }
+
         if (data.online) {
             updateChatStatus("Online", true);
         } else {
@@ -314,17 +339,41 @@ import {
     if (e.key === "Escape") closeChatMenu();
   });
 
-  deleteChatBtn.addEventListener("click", async () => {
-    closeChatMenu();
+  async function deleteChat(chatId) {
+    if (!chatId) return;
 
-    if (!activeChatId) return;
-
-    const confirmed = window.confirm(`Delete this conversation? This can't be undone.`);
+    const confirmed = window.confirm("Are you sure you want to delete this conversation? All messages will be permanently deleted.");
     if (!confirmed) return;
 
-    // For now we just hide it / remove it locally or do a real delete.
-    // A real delete requires deleting all subcollection docs which is hard from client.
-    alert("Deleting chats requires a Cloud Function in Firebase. Not fully implemented in demo.");
+    try {
+      if (activeChatId === chatId) {
+        if (messagesUnsubscribe) { messagesUnsubscribe(); messagesUnsubscribe = null; }
+        if (otherUserUnsubscribe) { otherUserUnsubscribe(); otherUserUnsubscribe = null; }
+        if (chatDocUnsubscribe) { chatDocUnsubscribe(); chatDocUnsubscribe = null; }
+        activeChatId = null;
+        activeChatUser = null;
+      }
+
+      // Delete messages in subcollection
+      const messagesRef = collection(db, "chats", chatId, "messages");
+      const msgsSnap = await getDocs(messagesRef);
+      const deletePromises = msgsSnap.docs.map(docSnap => deleteDoc(docSnap.ref));
+      await Promise.all(deletePromises);
+
+      // Delete parent chat doc
+      await deleteDoc(doc(db, "chats", chatId));
+
+    } catch (err) {
+      console.error("Error deleting chat:", err);
+      alert("Failed to delete chat: " + err.message);
+    }
+  }
+
+  deleteChatBtn.addEventListener("click", async () => {
+    closeChatMenu();
+    if (activeChatId) {
+      await deleteChat(activeChatId);
+    }
   });
 
   /* ---------------------------------------------------------------------
@@ -350,8 +399,8 @@ import {
               updatedAt: serverTimestamp(),
               lastMessage: "",
               users: {
-                  [firebaseUser.uid]: { name: firebaseProfile.name, username: firebaseProfile.username },
-                  [otherUser.uid]: { name: otherUser.name, username: otherUser.username }
+                  [firebaseUser.uid]: { name: firebaseProfile.name, username: firebaseProfile.username, photoURL: firebaseProfile.photoURL || null },
+                  [otherUser.uid]: { name: otherUser.name, username: otherUser.username, photoURL: otherUser.photoURL || null }
               }
           });
       }
@@ -455,7 +504,18 @@ import {
         firebaseProfile = docSnap.data();
         
         // Setup UI
-        myAvatarInitials.textContent = getInitials(firebaseProfile.name);
+        const photo = firebaseProfile.photoURL || user.photoURL;
+        if (photo) {
+          myAvatarInitials.textContent = "";
+          myAvatarInitials.style.backgroundImage = `url('${photo}')`;
+          myAvatarInitials.style.backgroundSize = "cover";
+          myAvatarInitials.style.backgroundPosition = "center";
+          myAvatarInitials.style.color = "transparent";
+        } else {
+          myAvatarInitials.textContent = getInitials(firebaseProfile.name);
+          myAvatarInitials.style.backgroundImage = "none";
+          myAvatarInitials.style.color = "";
+        }
         myProfileBtn.setAttribute("aria-label", `Your profile, ${firebaseProfile.name}, @${firebaseProfile.username}`);
         myProfileBtn.title = `@${firebaseProfile.username}`;
         
@@ -520,10 +580,15 @@ import {
           
           renderConvList(searchInput.value);
           
-          if (chats.length > 0 && !activeChatId) {
+          if (chats.length > 0 && (!activeChatId || !chats.some(c => c.id === activeChatId))) {
               const firstChat = chats[0];
               selectConversation(firstChat.id, firstChat.users[firstChat.otherUid]);
           } else if (chats.length === 0) {
+              activeChatId = null;
+              activeChatUser = null;
+              if (messagesUnsubscribe) { messagesUnsubscribe(); messagesUnsubscribe = null; }
+              if (otherUserUnsubscribe) { otherUserUnsubscribe(); otherUserUnsubscribe = null; }
+              if (chatDocUnsubscribe) { chatDocUnsubscribe(); chatDocUnsubscribe = null; }
               showEmptyState();
           }
       });
