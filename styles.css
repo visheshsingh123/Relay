@@ -166,6 +166,11 @@ input:focus-visible,
   align-items: center;
   justify-content: space-between;
   padding: 0 var(--sp-5);
+  background: var(--bg-surface-raised);
+  border-bottom: 1px solid rgba(110, 86, 207, 0.25);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  position: relative;
+  z-index: 10;
 }
 
 .logo {
@@ -379,7 +384,11 @@ input:focus-visible,
   align-items: center;
   gap: var(--sp-2);
   padding: 0 var(--sp-5);
-  border-bottom: 1px solid var(--border-hairline);
+  background: var(--bg-surface-raised);
+  border-bottom: 1px solid rgba(110, 86, 207, 0.25);
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.35);
+  position: relative;
+  z-index: 10;
   flex-shrink: 0;
 }
 
@@ -652,6 +661,17 @@ input:focus-visible,
    Responsive: Mobile (< 768px)
    ========================================================================== */
 @media (max-width: 767px) {
+  .sidebar__header,
+  .chat__header,
+  .adduser-topbar,
+  .auth-topbar {
+    background: #181328;
+    border-bottom: 1px solid rgba(156, 129, 245, 0.25);
+    box-shadow: 0 4px 18px rgba(0, 0, 0, 0.45);
+    position: relative;
+    z-index: 10;
+  }
+
   .app {
     grid-template-columns: 1fr;
   }
@@ -1360,3 +1380,127 @@ input:focus-visible,
 }
 .modal__title { font-size: var(--fs-lg); font-weight: 700; margin-bottom: var(--sp-2); }
 .modal__body { color: var(--text-secondary); font-size: var(--fs-sm); }
+
+/* ========================================================================== */
+/* Welcome Empty States */
+/* ========================================================================== */
+.sidebar-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--sp-6) var(--sp-5);
+  flex: 1;
+  min-height: 300px;
+  text-align: center;
+  position: relative;
+}
+.sidebar-empty[hidden] { display: none; }
+
+.sidebar-empty__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  margin-top: var(--sp-6);
+}
+
+.sidebar-empty__icon {
+  width: 68px;
+  height: 68px;
+  border-radius: var(--radius-full);
+  background: rgba(110, 86, 207, 0.15);
+  border: 1px solid rgba(156, 129, 245, 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--sp-4);
+  box-shadow: 0 0 24px rgba(110, 86, 207, 0.25);
+}
+
+.sidebar-empty__title {
+  font-size: var(--fs-lg);
+  font-weight: 800;
+  margin: 0 0 var(--sp-2);
+  color: var(--text-primary);
+}
+
+.sidebar-empty__desc {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  max-width: 240px;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.sidebar-empty__arrow-wrap {
+  position: absolute;
+  bottom: 78px;
+  right: 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.sidebar-empty__hint {
+  font-size: var(--fs-xs);
+  font-weight: 600;
+  color: var(--highlight);
+  background: rgba(30, 24, 54, 0.92);
+  border: 1px solid rgba(156, 129, 245, 0.4);
+  padding: 6px 12px;
+  border-radius: var(--radius-full);
+  margin-bottom: 4px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.4);
+  white-space: nowrap;
+}
+
+.sidebar-empty__arrow {
+  width: 64px;
+  height: 64px;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.4));
+}
+
+.chat-empty {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--sp-6);
+  text-align: center;
+}
+.chat-empty[hidden] { display: none; }
+
+.chat-empty__content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  max-width: 380px;
+}
+
+.chat-empty__badge {
+  width: 88px;
+  height: 88px;
+  border-radius: var(--radius-full);
+  background: rgba(110, 86, 207, 0.12);
+  border: 1px solid rgba(110, 86, 207, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: var(--sp-5);
+  box-shadow: 0 0 32px rgba(110, 86, 207, 0.2);
+}
+
+.chat-empty__content h2 {
+  font-size: var(--fs-xl);
+  font-weight: 800;
+  margin: 0 0 var(--sp-2);
+}
+
+.chat-empty__content p {
+  font-size: var(--fs-sm);
+  color: var(--text-muted);
+  line-height: 1.5;
+  margin: 0 0 var(--sp-4);
+}

@@ -7,7 +7,7 @@ import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { 
   doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, limit, getDocs, 
-  onSnapshot, addDoc, serverTimestamp, orderBy 
+  onSnapshot, addDoc, serverTimestamp, orderBy, arrayUnion, arrayRemove 
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 (() => {
@@ -41,6 +41,8 @@ import {
   const chatMenu = document.getElementById("chatMenu");
   const chatMenuBtn = document.getElementById("chatMenuBtn");
   const chatMenuDropdown = document.getElementById("chatMenuDropdown");
+  const blockUserBtn = document.getElementById("blockUserBtn");
+  const blockUserBtnLabel = document.getElementById("blockUserBtnLabel");
   const deleteChatBtn = document.getElementById("deleteChatBtn");
   const composer = document.getElementById("composer");
   const messageInput = document.getElementById("messageInput");
@@ -55,7 +57,8 @@ import {
   const onboardingUsernameError = document.getElementById("onboardingUsernameError");
   const onboardingUsernameSubmit = document.getElementById("onboardingUsernameSubmit");
   const myProfileBtn = document.getElementById("myProfileBtn");
-  const myAvatarInitials = document.getElementById("myAvatarInitials");
+  const sidebarEmpty = document.getElementById("sidebarEmpty");
+  const chatEmpty = document.getElementById("chatEmpty");
 
   const MOBILE_QUERY = window.matchMedia("(max-width: 767px)");
 
@@ -96,6 +99,10 @@ import {
     const query = filter.trim().toLowerCase();
     convListEl.innerHTML = "";
 
+    if (sidebarEmpty) {
+      sidebarEmpty.hidden = chats.length > 0;
+    }
+
     chats
       .filter((c) => {
         const q = query.replace(/^@/, "");
@@ -104,7 +111,7 @@ import {
         return otherUser.name.toLowerCase().includes(query) || otherUser.username.toLowerCase().includes(q);
       })
       .forEach((conv) => {
-        const otherUser = conv.users[conv.otherUid];
+        const otherUser = { uid: conv.otherUid, ...conv.users[conv.otherUid] };
         const item = document.createElement("button");
         item.type = "button";
         item.className = "conv-item";
@@ -233,6 +240,29 @@ import {
     chatStatusEl.innerHTML = `<span class="chat__status ${isOnline ? 'is-online' : ''}">${escapeHtml(statusText)}</span>`;
   }
 
+  function isUserBlocked(uid) {
+    if (!firebaseProfile || !firebaseProfile.blockedUsers) return false;
+    return Array.isArray(firebaseProfile.blockedUsers) && firebaseProfile.blockedUsers.includes(uid);
+  }
+
+  function updateBlockedUI(otherUser) {
+    if (!otherUser) return;
+    const isBlocked = isUserBlocked(otherUser.uid);
+    if (blockUserBtnLabel) {
+      blockUserBtnLabel.textContent = isBlocked ? "Unblock user" : "Block user";
+    }
+    if (isBlocked) {
+      messageInput.disabled = true;
+      messageInput.value = "";
+      messageInput.placeholder = `You blocked @${otherUser.username}. Unblock to message.`;
+      sendBtn.disabled = true;
+      sendBtn.classList.remove("is-active");
+    } else {
+      messageInput.disabled = false;
+      messageInput.placeholder = "Start typing…";
+    }
+  }
+
   /* ---------------------------------------------------------------------
      Selecting a conversation
      --------------------------------------------------------------------- */
@@ -242,6 +272,7 @@ import {
 
     renderConvList(searchInput.value);
     renderChatHeader(otherUser);
+    updateBlockedUI(otherUser);
     showChatPane();
 
     if (MOBILE_QUERY.matches) {
@@ -304,12 +335,14 @@ import {
     chatHeaderEl.hidden = false;
     threadEl.hidden = false;
     composer.hidden = false;
+    if (chatEmpty) chatEmpty.hidden = true;
   }
 
   function showEmptyState() {
     chatHeaderEl.hidden = true;
     threadEl.hidden = true;
     composer.hidden = true;
+    if (chatEmpty) chatEmpty.hidden = false;
   }
 
   /* ---------------------------------------------------------------------
@@ -368,6 +401,51 @@ import {
       alert("Failed to delete chat: " + err.message);
     }
   }
+
+  blockUserBtn.addEventListener("click", async () => {
+    closeChatMenu();
+    if (!activeChatUser || !firebaseUser) return;
+
+    const targetUid = activeChatUser.uid || activeChatUser.id;
+    if (!targetUid) {
+      alert("Failed to identify user ID to block.");
+      return;
+    }
+
+    const isBlocked = isUserBlocked(targetUid);
+
+    if (isBlocked) {
+      try {
+        await setDoc(doc(db, "users", firebaseUser.uid), {
+          blockedUsers: arrayRemove(targetUid)
+        }, { merge: true });
+        if (!firebaseProfile.blockedUsers) firebaseProfile.blockedUsers = [];
+        firebaseProfile.blockedUsers = firebaseProfile.blockedUsers.filter(id => id !== targetUid);
+        updateBlockedUI(activeChatUser);
+      } catch (err) {
+        console.error("Error unblocking user:", err);
+        alert("Failed to unblock user: " + err.message);
+      }
+    } else {
+      const confirmed = window.confirm(`Block @${activeChatUser.username}? You won't be able to send or receive messages in this chat.`);
+      if (!confirmed) return;
+
+      try {
+        await setDoc(doc(db, "users", firebaseUser.uid), {
+          blockedUsers: arrayUnion(targetUid)
+        }, { merge: true });
+
+        if (!firebaseProfile.blockedUsers) firebaseProfile.blockedUsers = [];
+        if (!firebaseProfile.blockedUsers.includes(targetUid)) {
+          firebaseProfile.blockedUsers.push(targetUid);
+        }
+        updateBlockedUI(activeChatUser);
+      } catch (err) {
+        console.error("Error blocking user:", err);
+        alert("Failed to block user: " + err.message);
+      }
+    }
+  });
 
   deleteChatBtn.addEventListener("click", async () => {
     closeChatMenu();
@@ -444,6 +522,10 @@ import {
 
   composer.addEventListener("submit", async (e) => {
     e.preventDefault();
+    if (activeChatUser && isUserBlocked(activeChatUser.uid)) {
+      alert("You cannot send messages to a blocked user. Unblock them first.");
+      return;
+    }
     const text = messageInput.value.trim();
     if (!text || !activeChatId) return;
 
@@ -582,7 +664,7 @@ import {
           
           if (chats.length > 0 && (!activeChatId || !chats.some(c => c.id === activeChatId))) {
               const firstChat = chats[0];
-              selectConversation(firstChat.id, firstChat.users[firstChat.otherUid]);
+              selectConversation(firstChat.id, { uid: firstChat.otherUid, ...firstChat.users[firstChat.otherUid] });
           } else if (chats.length === 0) {
               activeChatId = null;
               activeChatUser = null;
