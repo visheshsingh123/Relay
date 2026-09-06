@@ -1524,3 +1524,117 @@ input:focus-visible,
   line-height: 1.5;
   margin: 0 0 var(--sp-4);
 }
+
+/* ==========================================================================
+   Skeleton screens
+   ========================================================================== */
+@keyframes skeleton-shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position:  600px 0; }
+}
+
+/* Base shimmer surface — applied to every skeleton shape */
+.skeleton-line,
+.skeleton-circle,
+.skeleton-bubble {
+  background: linear-gradient(
+    90deg,
+    var(--bg-surface-raised) 25%,
+    rgba(241, 238, 249, 0.07) 50%,
+    var(--bg-surface-raised) 75%
+  );
+  background-size: 1200px 100%;
+  animation: skeleton-shimmer 1.6s ease-in-out infinite;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+
+/* Circle avatar placeholder */
+.skeleton-circle {
+  width: 40px;
+  height: 40px;
+  border-radius: var(--radius-full);
+}
+.skeleton-circle--md {
+  width: 44px;
+  height: 44px;
+}
+
+/* ── Sidebar skeleton ────────────────────────────────── */
+.sidebar-skeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--sp-2) var(--sp-3);
+}
+.sidebar-skeleton[hidden] { display: none; }
+
+.skeleton-conv-item {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: var(--sp-3);
+  border-radius: var(--radius-md);
+}
+
+.skeleton-conv-item__lines {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.skeleton-line {
+  height: 12px;
+  border-radius: var(--radius-full);
+}
+
+/* ── Chat panel skeleton ─────────────────────────────── */
+.chat-skeleton {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+}
+.chat-skeleton[hidden] { display: none; }
+
+.chat-skeleton__header {
+  height: var(--header-h);
+  min-height: var(--header-h);
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  padding: 0 var(--sp-5);
+  background: var(--bg-surface-raised);
+  border-bottom: 1px solid rgba(110, 86, 207, 0.25);
+}
+
+.chat-skeleton__lines {
+  display: flex;
+  flex-direction: column;
+}
+
+.chat-skeleton__thread {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: var(--sp-3);
+  padding: var(--sp-6);
+  overflow: hidden;
+}
+
+/* Bubble-shaped skeleton rows */
+.skeleton-bubble {
+  height: 42px;
+  border-radius: var(--radius-lg);
+}
+.skeleton-bubble--in {
+  align-self: flex-start;
+  border-bottom-left-radius: var(--radius-sm);
+}
+.skeleton-bubble--out {
+  align-self: flex-end;
+  border-bottom-right-radius: var(--radius-sm);
+}
+

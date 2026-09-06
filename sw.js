@@ -10,7 +10,7 @@
      straight to the network and rely on Firestore's own offline cache.
    ========================================================================== */
 
-const VERSION = "v1";
+const VERSION = "v2";
 const CACHE_NAME = `relay-shell-${VERSION}`;
 
 const SHELL_ASSETS = [

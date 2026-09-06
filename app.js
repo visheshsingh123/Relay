@@ -7,7 +7,7 @@ import { auth, db } from "./firebase-config.js";
 import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { 
   doc, getDoc, setDoc, updateDoc, deleteDoc, collection, query, where, limit, getDocs, 
-  onSnapshot, addDoc, serverTimestamp, orderBy, arrayUnion, arrayRemove, increment
+  onSnapshot, addDoc, serverTimestamp, orderBy, arrayUnion, arrayRemove, increment, limitToLast
 } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 
 (() => {
@@ -59,6 +59,10 @@ import {
   const myProfileBtn = document.getElementById("myProfileBtn");
   const sidebarEmpty = document.getElementById("sidebarEmpty");
   const chatEmpty = document.getElementById("chatEmpty");
+  const sidebarSkeleton = document.getElementById("sidebarSkeleton");
+  const chatSkeleton = document.getElementById("chatSkeleton");
+  const sidebarEmptyTitle = document.getElementById("sidebarEmptyTitle");
+  const chatEmptyTitle = document.getElementById("chatEmptyTitle");
 
   const MOBILE_QUERY = window.matchMedia("(max-width: 767px)");
 
@@ -317,9 +321,9 @@ import {
     if (otherUserUnsubscribe) otherUserUnsubscribe();
     if (chatDocUnsubscribe) chatDocUnsubscribe();
     
-    // Subscribe to messages
+    // Subscribe to messages (limit to recent 100 for fast loading & low bandwidth)
     const messagesRef = collection(db, "chats", id, "messages");
-    const q = query(messagesRef, orderBy("createdAt", "asc"));
+    const q = query(messagesRef, orderBy("createdAt", "asc"), limitToLast(100));
     
     messagesUnsubscribe = onSnapshot(q, (snapshot) => {
         currentMessages = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
@@ -364,6 +368,7 @@ import {
      Chat pane vs. empty state
      --------------------------------------------------------------------- */
   function showChatPane() {
+    if (chatSkeleton) chatSkeleton.hidden = true;
     chatHeaderEl.hidden = false;
     threadEl.hidden = false;
     composer.hidden = false;
@@ -371,6 +376,7 @@ import {
   }
 
   function showEmptyState() {
+    if (chatSkeleton) chatSkeleton.hidden = true;
     chatHeaderEl.hidden = true;
     threadEl.hidden = true;
     composer.hidden = true;
@@ -609,6 +615,14 @@ import {
 
   searchInput.addEventListener("input", () => renderConvList(searchInput.value));
 
+  function updateWelcomeTitles() {
+    if (!firebaseProfile) return;
+    const name = firebaseProfile.name || firebaseProfile.username || "";
+    const text = name ? `Welcome to Relay, ${name}!` : "Welcome to Relay!";
+    if (sidebarEmptyTitle) sidebarEmptyTitle.textContent = text;
+    if (chatEmptyTitle) chatEmptyTitle.textContent = text;
+  }
+
   /* ---------------------------------------------------------------------
      Init & Auth State
      --------------------------------------------------------------------- */
@@ -624,6 +638,7 @@ import {
       const docSnap = await getDoc(doc(db, "users", user.uid));
       if (docSnap.exists()) {
         firebaseProfile = docSnap.data();
+        updateWelcomeTitles();
         
         // Setup UI
         const photo = firebaseProfile.photoURL || user.photoURL;
@@ -702,16 +717,14 @@ import {
           
           renderConvList(searchInput.value);
 
-          if (chats.length === 0) {
-              // No chats at all — clear state and show empty screen
-              activeChatId = null;
-              activeChatUser = null;
-              if (messagesUnsubscribe) { messagesUnsubscribe(); messagesUnsubscribe = null; }
-              if (otherUserUnsubscribe) { otherUserUnsubscribe(); otherUserUnsubscribe = null; }
-              if (chatDocUnsubscribe) { chatDocUnsubscribe(); chatDocUnsubscribe = null; }
+          // Dismiss sidebar skeleton once real data has arrived
+          if (sidebarSkeleton) sidebarSkeleton.hidden = true;
+
+          if (!activeChatId) {
+              // No chat selected yet — hide skeleton and show empty state
               showEmptyState();
-          } else if (activeChatId && !chats.some(c => c.id === activeChatId)) {
-              // The chat the user had open was deleted — clear it
+          } else if (!chats.some(c => c.id === activeChatId)) {
+              // The chat the user had open was deleted — clear it and show empty state
               activeChatId = null;
               activeChatUser = null;
               if (messagesUnsubscribe) { messagesUnsubscribe(); messagesUnsubscribe = null; }
@@ -768,6 +781,7 @@ import {
       
       // Update profile cache and init
       firebaseProfile = { ...firebaseProfile, username: val, name: firebaseUser.displayName || firebaseUser.email.split("@")[0] };
+      updateWelcomeTitles();
       myAvatarInitials.textContent = getInitials(firebaseProfile.name);
       myProfileBtn.setAttribute("aria-label", `Your profile, ${firebaseProfile.name}, @${firebaseProfile.username}`);
       myProfileBtn.title = `@${firebaseProfile.username}`;
