@@ -30,8 +30,8 @@ const SHELL_ASSETS = [
   "./settings.js",
   "./firebase-config.js",
   "./manifest.json",
-  "./Assets/icon.png",
-  "./Assets/icon.png",
+  "./Assets/icon-192.png",
+  "./Assets/icon-512.png"
 ];
 
 /* ---------------------------------------------------------------------
