@@ -705,6 +705,10 @@ import {
       myAvatarInitials.style.backgroundImage = "none";
       myAvatarInitials.style.color = "";
     }
+    if (profile.username && usernameModal) {
+      usernameModal.setAttribute('hidden', 'true');
+      localStorage.setItem("relay_username", profile.username);
+    }
     if (profile.name && profile.username) {
       myProfileBtn.setAttribute("aria-label", `Your profile, ${profile.name}, @${profile.username}`);
       myProfileBtn.title = `@${profile.username}`;
@@ -745,11 +749,19 @@ import {
     firebaseUser = user;
     requestNotificationPermission();
     
-    // Fetch profile
+    // If username is already known from local profile/cache, hide modal immediately and init app
+    const knownUsername = (firebaseProfile && firebaseProfile.username) || localStorage.getItem("relay_username");
+    if (knownUsername) {
+      usernameModal.setAttribute('hidden', 'true');
+      initializeApp();
+    }
+
+    // Fetch latest profile from Firestore
     try {
       const docSnap = await getDoc(doc(db, "users", user.uid));
       if (docSnap.exists()) {
-        firebaseProfile = docSnap.data();
+        const data = docSnap.data();
+        firebaseProfile = data;
         try {
           localStorage.setItem("relay_user_profile", JSON.stringify(firebaseProfile));
         } catch (e) { /* ignore */ }
@@ -759,17 +771,22 @@ import {
           usernameModal.removeAttribute('hidden');
         } else {
           localStorage.setItem("relay_username", firebaseProfile.username);
+          usernameModal.setAttribute('hidden', 'true');
           initializeApp();
         }
       } else {
-        usernameModal.removeAttribute('hidden');
+        if (!knownUsername) {
+          usernameModal.removeAttribute('hidden');
+        }
       }
     } catch (err) {
       console.error("Error fetching profile:", err);
-      if (err.code === "permission-denied") {
-        alert("Firestore Permission Denied. Please ensure your Firestore database is created and set to Test Mode rules.");
+      if (!knownUsername) {
+        if (err.code === "permission-denied") {
+          alert("Firestore Permission Denied. Please ensure your Firestore database is created and set to Test Mode rules.");
+        }
+        usernameModal.removeAttribute('hidden');
       }
-      usernameModal.removeAttribute('hidden');
     }
   });
   
