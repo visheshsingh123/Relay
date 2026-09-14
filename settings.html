@@ -117,10 +117,22 @@
           </label>
 
           <label class="checkbox">
+            <input type="checkbox" id="soundEffects" name="soundEffects" checked>
+            <span class="checkbox__box" aria-hidden="true"></span>
+            <span class="checkbox__label">Message sound effects</span>
+          </label>
+
+          <label class="checkbox">
             <input type="checkbox" id="pushNotifications" name="pushNotifications">
             <span class="checkbox__box" aria-hidden="true"></span>
             <span class="checkbox__label" id="pushNotificationsLabel">Enable Push Notifications</span>
           </label>
+
+          <div class="field" style="margin-top: 1.25rem;">
+            <label class="field__label" for="groqApiKey">Groq API Key (for Relay AI)</label>
+            <input class="field__input" type="password" id="groqApiKey" name="groqApiKey" placeholder="gsk_..." autocomplete="off" spellcheck="false">
+            <p class="settings-section__desc" style="margin-top: 6px; font-size: var(--fs-xs);">Get a free key from <a href="https://console.groq.com/keys" target="_blank" style="color: var(--accent); text-decoration: underline;">console.groq.com</a> to power Relay AI with Llama 3.3 70B.</p>
+          </div>
         </section>
 
         <p class="form-error" id="formError" role="alert" hidden></p>

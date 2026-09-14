@@ -5,6 +5,7 @@
    ========================================================================== */
 
 import { auth, db, storage } from "./firebase-config.js";
+import { showCustomAlert, showCustomConfirm } from "./ui-popup.js";
 import { signOut, onAuthStateChanged, updateEmail, updatePassword, updateProfile, deleteUser } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-auth.js";
 import { doc, getDoc, setDoc, deleteDoc, collection, query, where, limit, getDocs } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-firestore.js";
 import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/12.18.0/firebase-storage.js";
@@ -118,10 +119,12 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
     const prefs = profileData.preferences || {};
     const readReceiptsInput  = document.getElementById("readReceipts");
     const onlineStatusInput  = document.getElementById("onlineStatus");
+    const soundEffectsInput  = document.getElementById("soundEffects");
 
     // Load saved values (default true if never set)
     if (readReceiptsInput)  readReceiptsInput.checked  = prefs.readReceipts  !== false;
     if (onlineStatusInput)  onlineStatusInput.checked  = prefs.onlineStatus  !== false;
+    if (soundEffectsInput)  soundEffectsInput.checked  = prefs.soundEffects  !== false;
 
     async function savePref(key, value) {
       try {
@@ -131,6 +134,28 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
         cached.preferences = { ...(cached.preferences || {}), [key]: value };
         localStorage.setItem("relay_user_profile", JSON.stringify(cached));
       } catch (e) { console.error("Failed to save preference:", e); }
+    }
+
+    if (readReceiptsInput) {
+      readReceiptsInput.addEventListener("change", () => savePref("readReceipts", readReceiptsInput.checked));
+    }
+    if (soundEffectsInput) {
+      soundEffectsInput.addEventListener("change", () => savePref("soundEffects", soundEffectsInput.checked));
+    }
+
+    // ── Groq API Key ─────────────────────────────────────────────────────
+    const DEFAULT_GROQ_KEY = "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";
+    const groqApiKeyInput = document.getElementById("groqApiKey");
+    if (groqApiKeyInput) {
+      const savedKey = localStorage.getItem("relay_groq_api_key") || prefs.groqApiKey || DEFAULT_GROQ_KEY;
+      groqApiKeyInput.value = savedKey;
+      localStorage.setItem("relay_groq_api_key", savedKey);
+
+      groqApiKeyInput.addEventListener("change", () => {
+        const val = groqApiKeyInput.value.trim();
+        localStorage.setItem("relay_groq_api_key", val);
+        savePref("groqApiKey", val);
+      });
     }
 
     if (readReceiptsInput) {
@@ -269,7 +294,7 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
 
     } catch (err) {
       console.error("Error processing photo:", err);
-      alert("Failed to process photo. Please try another image.");
+      showCustomAlert("Failed to process photo. Please try another image.", "Photo Error");
     } finally {
       changePhotoBtn.textContent = "Change photo";
       changePhotoBtn.disabled = false;
@@ -474,8 +499,9 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
   });
 
   deleteAccountBtn.addEventListener("click", async () => {
-    const confirmed = window.confirm(
-      "Delete your account? This permanently removes your profile and every conversation. This can't be undone."
+    const confirmed = await showCustomConfirm(
+      "Delete your account? This permanently removes your profile and every conversation. This can't be undone.",
+      "Delete Account"
     );
     if (!confirmed) return;
 
@@ -493,9 +519,9 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
     } catch (err) {
       console.error("Error deleting account:", err);
       if (err.code === "auth/requires-recent-login") {
-        alert("For security, please log out and log back in before deleting your account.");
+        showCustomAlert("For security, please log out and log back in before deleting your account.", "Security Notice");
       } else {
-        alert("Something went wrong deleting your account. Please try again.");
+        showCustomAlert("Something went wrong deleting your account. Please try again.", "Error");
       }
     }
   });

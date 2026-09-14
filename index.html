@@ -48,8 +48,8 @@
       <!-- Conversation items injected by app.js -->
     </nav>
 
-    <!-- Sidebar skeleton: shown while chats are loading -->
-    <div class="sidebar-skeleton" id="sidebarSkeleton" aria-hidden="true">
+    <!-- Sidebar skeleton: shown only while chats are being loaded from network -->
+    <div class="sidebar-skeleton" id="sidebarSkeleton" aria-hidden="true" hidden>
       <div class="skeleton-conv-item"><div class="skeleton-circle"></div><div class="skeleton-conv-item__lines"><div class="skeleton-line" style="width:55%"></div><div class="skeleton-line" style="width:75%;margin-top:7px"></div></div></div>
       <div class="skeleton-conv-item"><div class="skeleton-circle"></div><div class="skeleton-conv-item__lines"><div class="skeleton-line" style="width:40%"></div><div class="skeleton-line" style="width:65%;margin-top:7px"></div></div></div>
       <div class="skeleton-conv-item"><div class="skeleton-circle"></div><div class="skeleton-conv-item__lines"><div class="skeleton-line" style="width:60%"></div><div class="skeleton-line" style="width:80%;margin-top:7px"></div></div></div>
@@ -77,6 +77,13 @@
         </svg>
       </div>
     </div>
+
+    <button class="fab fab--ai" id="aiFabBtn" aria-label="AI Assistant" type="button">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
+        <path d="M12 2l1.5 4.5L18 8l-4.5 1.5L12 14l-1.5-4.5L6 8l4.5-1.5L12 2z" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round"/>
+        <path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8L19 15z" stroke="currentColor" stroke-width="1.4" stroke-linejoin="round"/>
+      </svg>
+    </button>
 
     <a class="fab" id="newChatBtn" href="adduser.html" aria-label="Start a new conversation">
       <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true">
@@ -122,6 +129,13 @@
       </div>
 
       <div class="chat__actions">
+        <button class="icon-btn" id="threadSearchBtn" aria-label="Search in conversation" title="Search in chat">
+          <svg viewBox="0 0 24 24" width="19" height="19" fill="none" aria-hidden="true">
+            <circle cx="11" cy="11" r="6" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M15.5 15.5L20 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+
         <div class="menu" id="chatMenu">
           <button class="icon-btn" id="chatMenuBtn" aria-label="More options" aria-haspopup="true" aria-expanded="false">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
@@ -131,6 +145,25 @@
             </svg>
           </button>
           <div class="menu__dropdown" id="chatMenuDropdown" role="menu" hidden>
+            <button type="button" class="menu__item" id="pinChatMenuBtn" role="menuitem">
+              <span style="font-size:16px;line-height:1;">📌</span>
+              <span id="pinChatMenuBtnLabel">Pin conversation</span>
+            </button>
+            <button type="button" class="menu__item" id="muteChatMenuBtn" role="menuitem">
+              <span id="muteChatMenuBtnIcon" style="font-size:16px;line-height:1;">🔕</span>
+              <span id="muteChatMenuBtnLabel">Mute notifications</span>
+            </button>
+            <button type="button" class="menu__item" id="searchChatMenuBtn" role="menuitem">
+              <svg viewBox="0 0 24 24" width="17" height="17" fill="none" aria-hidden="true">
+                <circle cx="11" cy="11" r="6" stroke="currentColor" stroke-width="1.8"/>
+                <path d="M15.5 15.5L20 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+              </svg>
+              <span>Search in chat</span>
+            </button>
+            <button type="button" class="menu__item" id="summarizeChatMenuBtn" role="menuitem">
+              <span style="font-size:16px;line-height:1;">📝</span>
+              <span>Summarize with AI</span>
+            </button>
             <button type="button" class="menu__item menu__item--danger" id="blockUserBtn" role="menuitem">
               <svg viewBox="0 0 24 24" width="17" height="17" fill="none" aria-hidden="true">
                 <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/>
@@ -145,20 +178,66 @@
                 <path d="M6 7l1 13a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1l1-13" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M10 11v6M14 11v6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
               </svg>
-              Delete chat
+              <span>Delete messages</span>
             </button>
           </div>
         </div>
       </div>
     </header>
 
+    <!-- In-Chat Thread Search Bar -->
+    <div class="thread-search-bar" id="threadSearchBar" hidden>
+      <svg class="thread-search-bar__icon" viewBox="0 0 24 24" width="16" height="16" fill="none">
+        <circle cx="11" cy="11" r="6" stroke="currentColor" stroke-width="1.8"/>
+        <path d="M15.5 15.5L20 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+      <input type="text" id="threadSearchInput" class="thread-search-bar__input" placeholder="Search in chat…" autocomplete="off">
+      <span class="thread-search-bar__count" id="threadSearchCount" hidden>0 of 0</span>
+      <div class="thread-search-bar__nav">
+        <button type="button" class="thread-search-bar__btn" id="threadSearchPrev" aria-label="Previous match" disabled>▲</button>
+        <button type="button" class="thread-search-bar__btn" id="threadSearchNext" aria-label="Next match" disabled>▼</button>
+      </div>
+      <button type="button" class="thread-search-bar__close" id="threadSearchClose" aria-label="Close search">✕</button>
+    </div>
+
     <div class="thread" id="thread" aria-live="polite" hidden>
       <!-- Message bubbles injected by app.js -->
     </div>
 
     <form class="composer" id="composer" hidden>
+      <div id="editingBar" class="editing-bar" hidden>
+        <div class="editing-bar__left">
+          <span class="editing-bar__icon">✏️</span>
+          <div class="editing-bar__info">
+            <span class="editing-bar__title">Editing message</span>
+            <span class="editing-bar__preview" id="editingBarPreview"></span>
+          </div>
+        </div>
+        <button type="button" class="editing-bar__cancel" id="editingBarCancel" aria-label="Cancel editing">✕</button>
+      </div>
+
+      <div id="replyBar" class="reply-bar" hidden>
+        <div class="reply-bar__left">
+          <span class="reply-bar__icon">↩️</span>
+          <div class="reply-bar__info">
+            <span class="reply-bar__sender" id="replyBarSender"></span>
+            <span class="reply-bar__preview" id="replyBarPreview"></span>
+          </div>
+        </div>
+        <button type="button" class="editing-bar__cancel" id="replyBarCancel" aria-label="Cancel reply">✕</button>
+      </div>
+
+      <!-- Smart Replies Bar -->
+      <div id="smartRepliesBar" class="smart-replies-bar" hidden>
+        <span class="smart-replies-label">✨</span>
+        <div class="smart-replies-list" id="smartRepliesList"></div>
+        <button type="button" class="smart-replies-close" id="smartRepliesClose" aria-label="Dismiss smart replies">✕</button>
+      </div>
+
       <label class="sr-only" for="messageInput">Type a message</label>
       <input type="text" id="messageInput" class="composer__input" placeholder="Start typing…" autocomplete="off">
+
+      <button type="button" class="ai-btn" id="aiComposerBtn" aria-label="AI Assistant">.ai</button>
 
       <button type="submit" class="send-btn" id="sendBtn" aria-label="Send message" disabled>
         <svg viewBox="0 0 24 24" width="19" height="19" fill="none" aria-hidden="true">
@@ -199,6 +278,105 @@
       </div>
     </div>
   </main>
+
+  <!-- ============ MUTE DURATION MODAL ============ -->
+  <div class="modal-overlay" id="muteModal" hidden>
+    <div class="modal mute-modal" role="dialog" aria-modal="true" aria-labelledby="muteModalTitle">
+      <h2 class="modal__title" id="muteModalTitle">🔕 Mute Notifications</h2>
+      <p class="modal__body" id="muteModalBody">Choose how long you want to mute notifications for this chat:</p>
+      
+      <div class="mute-options" style="display:flex;flex-direction:column;gap:8px;margin-top:1.25rem;">
+        <button type="button" class="btn-secondary mute-opt-btn" data-duration="28800000">For 8 Hours</button>
+        <button type="button" class="btn-secondary mute-opt-btn" data-duration="604800000">For 1 Week</button>
+        <button type="button" class="btn-secondary mute-opt-btn" data-duration="-1">Always (Until unmuted)</button>
+      </div>
+      
+      <div style="margin-top:1.25rem;display:flex;justify-content:flex-end;">
+        <button type="button" class="btn-secondary" id="muteModalCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ AI ASSISTANT MODAL ============ -->
+  <div class="modal-overlay" id="aiAssistantModal" hidden>
+    <div class="modal ai-assistant-modal" role="dialog" aria-modal="true" aria-labelledby="aiAssistantTitle">
+      <div class="ai-modal-header" style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;">
+        <div style="display:flex;align-items:center;gap:8px;">
+          <span style="font-size:1.5rem;">🤖</span>
+          <h2 class="modal__title" id="aiAssistantTitle" style="margin:0;">Relay AI Assistant</h2>
+        </div>
+        <button type="button" class="editing-bar__cancel" id="aiModalClose" aria-label="Close AI Assistant">✕</button>
+      </div>
+
+      <!-- AI Tabs -->
+      <div class="ai-tabs">
+        <button type="button" class="ai-tab-btn is-active" data-tab="rewrite">✨ Tone Rewriter</button>
+        <button type="button" class="ai-tab-btn" data-tab="draft">✍️ Draft Reply</button>
+        <button type="button" class="ai-tab-btn" data-tab="summary">📝 Chat Summary</button>
+      </div>
+
+      <!-- Tab: Tone Rewriter -->
+      <div class="ai-tab-pane" id="aiTabRewrite">
+        <label class="field__label" for="aiRewriteInput" style="font-size:var(--fs-xs);color:var(--text-muted);margin-bottom:6px;display:block;">Your Message to Rewrite</label>
+        <textarea id="aiRewriteInput" class="field__input" rows="3" placeholder="Type or paste a message to rewrite..." style="resize:none;margin-bottom:10px;"></textarea>
+        
+        <div class="ai-chips-wrap">
+          <button type="button" class="ai-tone-chip" data-tone="professional">💼 Professional</button>
+          <button type="button" class="ai-tone-chip" data-tone="casual">🕶️ Casual & Chill</button>
+          <button type="button" class="ai-tone-chip" data-tone="concise">⚡ Short & Crisp</button>
+          <button type="button" class="ai-tone-chip" data-tone="funny">😂 Witty & Fun</button>
+          <button type="button" class="ai-tone-chip" data-tone="grammar">✍️ Fix Grammar</button>
+        </div>
+
+        <div id="aiRewriteResultContainer" hidden class="ai-result-box">
+          <div class="ai-result-title">✨ Rewritten Preview:</div>
+          <p id="aiRewriteResult" class="ai-result-text"></p>
+          <button type="button" class="btn-primary ai-use-btn" id="aiUseRewriteBtn">Insert into Composer</button>
+        </div>
+      </div>
+
+      <!-- Tab: Draft Reply -->
+      <div class="ai-tab-pane" id="aiTabDraft" hidden>
+        <label class="field__label" for="aiDraftPrompt" style="font-size:var(--fs-xs);color:var(--text-muted);margin-bottom:6px;display:block;">What would you like to say?</label>
+        <input type="text" id="aiDraftPrompt" class="field__input" placeholder="e.g. Say I'll join the call 10 mins late" style="margin-bottom:10px;">
+        <button type="button" class="btn-primary" id="aiGenerateDraftBtn" style="height:38px;font-size:var(--fs-sm);width:100%;margin-bottom:12px;">Generate Reply</button>
+        
+        <div id="aiDraftResultContainer" hidden class="ai-result-box">
+          <div class="ai-result-title">✨ Drafted Reply:</div>
+          <p id="aiDraftResult" class="ai-result-text"></p>
+          <button type="button" class="btn-primary ai-use-btn" id="aiUseDraftBtn">Insert into Composer</button>
+        </div>
+      </div>
+
+      <!-- Tab: Chat Summary -->
+      <div class="ai-tab-pane" id="aiTabSummary" hidden>
+        <p style="font-size:var(--fs-sm);color:var(--text-muted);margin-bottom:12px;">Get a comprehensive, natural overview of recent conversations, tone, and action items.</p>
+        <button type="button" class="btn-primary" id="aiGenerateSummaryBtn" style="height:38px;font-size:var(--fs-sm);width:100%;margin-bottom:12px;">Summarize Current Chat</button>
+        <div id="aiSummaryResultContainer" hidden class="ai-result-box">
+          <div class="ai-result-title">📝 Chat Summary:</div>
+          <p id="aiSummaryResult" class="ai-result-text"></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ FORWARD MESSAGE MODAL ============ -->
+  <div class="modal-overlay" id="forwardModal" hidden>
+    <div class="modal forward-modal" role="dialog" aria-modal="true" aria-labelledby="forwardModalTitle">
+      <div class="forward-modal__header">
+        <h2 class="modal__title" id="forwardModalTitle">➡️ Forward Message</h2>
+        <button type="button" class="editing-bar__cancel" id="forwardModalClose" aria-label="Close forward modal">✕</button>
+      </div>
+      
+      <div class="forward-preview" id="forwardPreview"></div>
+
+      <input type="text" id="forwardSearchInput" class="field__input" placeholder="Search chats to forward to…" style="margin-bottom:12px;">
+
+      <div class="forward-list" id="forwardList">
+        <!-- Rendered dynamically -->
+      </div>
+    </div>
+  </div>
 
   <!-- ============ USERNAME MODAL ============ -->
   <div class="modal-overlay" id="usernameModal" hidden>
