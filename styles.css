@@ -51,6 +51,7 @@
   --header-h: 68px;
 }
 
+
 /* ==========================================================================
    Reset & Base
    ========================================================================== */
@@ -1448,6 +1449,7 @@ textarea:focus-visible,
   grid-template-columns: 1fr 1fr;
   gap: var(--sp-4);
 }
+
 
 .settings-section .field { margin-bottom: 0; }
 .settings-section > .field + .field { margin-top: var(--sp-4); }

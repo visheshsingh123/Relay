@@ -549,6 +549,11 @@ import {
 
   function openUserProfile(user) {
     if (!user) return;
+    try {
+      if (user.uid) localStorage.setItem("relay_user_cache_" + user.uid, JSON.stringify(user));
+      if (user.username) localStorage.setItem("relay_user_cache_" + user.username.toLowerCase(), JSON.stringify(user));
+      localStorage.setItem("relay_last_viewed_user", JSON.stringify(user));
+    } catch (_) {}
     const identifier = user.uid ? `uid=${encodeURIComponent(user.uid)}` : `username=${encodeURIComponent(user.username)}`;
     window.location.href = `profileview.html?${identifier}`;
   }
@@ -2614,6 +2619,23 @@ import {
   }
 
   async function fetchGroqResponse(messages) {
+    // 1. First, try Vercel Serverless proxy if deployed
+    try {
+      const serverlessRes = await fetch("/api/groq", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messages })
+      });
+      if (serverlessRes.ok) {
+        const data = await serverlessRes.json();
+        const content = data.choices?.[0]?.message?.content;
+        if (content) return cleanAIResponse(content);
+      }
+    } catch (_) {
+      // Not hosted on Vercel or running locally on plain static server — fallback to client-side key
+    }
+
+    // 2. Direct client-side Groq API fallback
     const rawLocal = (localStorage.getItem("relay_groq_api_key") || "").trim();
     const rawPref = (firebaseProfile?.preferences?.groqApiKey || "").trim();
     const apiKey = rawLocal || rawPref || DEFAULT_GROQ_KEY;
@@ -3467,6 +3489,21 @@ Do NOT use robotic headers like "Mood & Tone:" or numbered bullet points. Keep i
               unreadCounts: c.unreadCounts || {}
             }));
             localStorage.setItem("relay_chats_cache", JSON.stringify(serializableChats));
+            chats.forEach(c => {
+              if (c.users && typeof c.users === "object") {
+                Object.entries(c.users).forEach(([uid, uData]) => {
+                  if (uData && typeof uData === "object") {
+                    try {
+                      const toSave = { uid, ...uData };
+                      localStorage.setItem("relay_user_cache_" + uid, JSON.stringify(toSave));
+                      if (uData.username) {
+                        localStorage.setItem("relay_user_cache_" + uData.username.toLowerCase(), JSON.stringify(toSave));
+                      }
+                    } catch (_) {}
+                  }
+                });
+              }
+            });
           } catch (e) { /* ignore */ }
           
           chats.sort((a, b) => {

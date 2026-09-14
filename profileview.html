@@ -145,6 +145,104 @@
 
 </div>
 
+<script>
+  (function() {
+    try {
+      var params = new URLSearchParams(window.location.search);
+      var targetUid = params.get("uid");
+      var targetUsername = params.get("username");
+      if (!targetUid && !targetUsername) return;
+
+      var cached = null;
+      if (targetUid) {
+        var raw = localStorage.getItem("relay_user_cache_" + targetUid);
+        if (raw) cached = JSON.parse(raw);
+      }
+      if (!cached && targetUsername) {
+        var raw = localStorage.getItem("relay_user_cache_" + targetUsername.toLowerCase());
+        if (raw) cached = JSON.parse(raw);
+      }
+      if (!cached) {
+        var last = localStorage.getItem("relay_last_viewed_user");
+        if (last) {
+          var lu = JSON.parse(last);
+          if ((targetUid && lu.uid === targetUid) || (targetUsername && lu.username && lu.username.toLowerCase() === targetUsername.toLowerCase())) {
+            cached = lu;
+          }
+        }
+      }
+      if (!cached) {
+        var own = localStorage.getItem("relay_user_profile");
+        if (own) {
+          var ou = JSON.parse(own);
+          if ((targetUid && ou.uid === targetUid) || (targetUsername && ou.username && ou.username.toLowerCase() === targetUsername.toLowerCase())) {
+            cached = ou;
+          }
+        }
+      }
+      if (!cached) {
+        var chatsRaw = localStorage.getItem("relay_chats_cache");
+        if (chatsRaw) {
+          var chatsList = JSON.parse(chatsRaw);
+          if (Array.isArray(chatsList)) {
+            for (var i = 0; i < chatsList.length; i++) {
+              var c = chatsList[i];
+              if (c.users && typeof c.users === "object") {
+                for (var uKey in c.users) {
+                  var u = c.users[uKey];
+                  if (targetUid && (uKey === targetUid || u.uid === targetUid)) {
+                    cached = Object.assign({ uid: uKey }, u);
+                    break;
+                  }
+                  if (targetUsername && u.username && u.username.toLowerCase() === targetUsername.toLowerCase()) {
+                    cached = Object.assign({ uid: uKey }, u);
+                    break;
+                  }
+                }
+                if (cached) break;
+              }
+            }
+          }
+        }
+      }
+
+      if (cached) {
+        var nameEl = document.getElementById("pvName");
+        var unameEl = document.getElementById("pvUsername");
+        var detailUnameEl = document.getElementById("pvDetailUsername");
+        var avatarEl = document.getElementById("pvAvatar");
+        var bioEl = document.getElementById("pvBio");
+        var emailEl = document.getElementById("pvDetailEmail");
+        var emailRow = document.getElementById("pvEmailRow");
+        var detailJoined = document.getElementById("pvDetailJoined");
+
+        if (nameEl && cached.name) nameEl.textContent = cached.name;
+        if (unameEl && cached.username) unameEl.textContent = "@" + cached.username;
+        if (detailUnameEl && cached.username) detailUnameEl.textContent = "@" + cached.username;
+        if (avatarEl && cached.photoURL) {
+          avatarEl.style.backgroundImage = "url('" + cached.photoURL + "')";
+          avatarEl.style.backgroundSize = "cover";
+          avatarEl.style.backgroundPosition = "center";
+          avatarEl.style.color = "transparent";
+        }
+        if (bioEl && cached.bio && cached.bio.trim()) {
+          bioEl.textContent = cached.bio;
+          bioEl.classList.remove("is-empty");
+        }
+        if (emailEl && cached.email) {
+          emailEl.textContent = cached.email;
+          if (emailRow) emailRow.hidden = false;
+        }
+        if (detailJoined && cached.createdAt) {
+          var date = cached.createdAt.toDate ? cached.createdAt.toDate() : new Date(cached.createdAt);
+          if (!isNaN(date.getTime())) {
+            detailJoined.textContent = date.toLocaleDateString(undefined, { year: "numeric", month: "long", day: "numeric" });
+          }
+        }
+      }
+    } catch (_) {}
+  })();
+</script>
 <script type="module" src="profileview.js"></script>
 <script src="pwa-register.js"></script>
 </body>

@@ -96,6 +96,11 @@ import { collection, query, where, limit, getDocs } from "https://www.gstatic.co
           avatarWrap.title = "View profile";
           avatarWrap.addEventListener("click", (e) => {
             e.stopPropagation();
+            try {
+              if (user.uid) localStorage.setItem("relay_user_cache_" + user.uid, JSON.stringify(user));
+              if (user.username) localStorage.setItem("relay_user_cache_" + user.username.toLowerCase(), JSON.stringify(user));
+              localStorage.setItem("relay_last_viewed_user", JSON.stringify(user));
+            } catch (_) {}
             window.location.href = `profileview.html?uid=${encodeURIComponent(user.uid)}`;
           });
         }

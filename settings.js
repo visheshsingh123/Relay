@@ -125,8 +125,8 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
       console.error("Error fetching profile:", err);
     }
 
+
     // ── Preferences ──────────────────────────────────────────────────────
-    const prefs = profileData.preferences || {};
     const readReceiptsInput  = document.getElementById("readReceipts");
     const onlineStatusInput  = document.getElementById("onlineStatus");
     const soundEffectsInput  = document.getElementById("soundEffects");
