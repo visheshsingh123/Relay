@@ -69,6 +69,20 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
   }
 
   /* ---------------------------------------------------------------------
+     Instant Cache Hydration (0ms load from localStorage)
+     --------------------------------------------------------------------- */
+  try {
+    const cachedProfileRaw = localStorage.getItem("relay_user_profile");
+    if (cachedProfileRaw) {
+      const p = JSON.parse(cachedProfileRaw);
+      if (p.name) fullNameInput.value = p.name;
+      if (p.username) usernameInput.value = p.username;
+      if (p.email) emailInput.value = p.email;
+      setAvatarImage(p.photoURL, p.name);
+    }
+  } catch (e) { /* ignore */ }
+
+  /* ---------------------------------------------------------------------
      Hydrate the form with the current profile
      --------------------------------------------------------------------- */
   onAuthStateChanged(auth, async (user) => {
@@ -77,8 +91,8 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
       return;
     }
 
-    emailInput.value = user.email || "";
-    fullNameInput.value = user.displayName || "";
+    emailInput.value = user.email || emailInput.value || "";
+    fullNameInput.value = user.displayName || fullNameInput.value || "";
     setAvatarImage(user.photoURL, user.displayName);
 
     try {
@@ -90,6 +104,10 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
         usernameInput.value = data.username || "";
         emailInput.value = data.email || user.email || "";
         
+        try {
+          localStorage.setItem("relay_user_profile", JSON.stringify(data));
+        } catch (e) { /* ignore */ }
+
         setAvatarImage(data.photoURL || user.photoURL, displayName);
       }
     } catch (err) {

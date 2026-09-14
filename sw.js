@@ -10,7 +10,7 @@
      straight to the network and rely on Firestore's own offline cache.
    ========================================================================== */
 
-const VERSION = "v2";
+const VERSION = "v3";
 const CACHE_NAME = `relay-shell-${VERSION}`;
 
 const SHELL_ASSETS = [
@@ -69,7 +69,7 @@ self.addEventListener("activate", (event) => {
 });
 
 /* ---------------------------------------------------------------------
-   Fetch
+   Fetch — Stale-While-Revalidate for 0ms instant page loads
    --------------------------------------------------------------------- */
 self.addEventListener("fetch", (event) => {
   const { request } = event;
@@ -81,39 +81,23 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Navigations: network-first, falling back to the cached page (or
-  // the cached index.html) when offline.
-  if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-          return response;
-        })
-        .catch(async () => {
-          const cached = await caches.match(request);
-          return cached || caches.match("./index.html");
-        })
-    );
-    return;
-  }
-
-  // Static assets (CSS/JS/images): cache-first, refreshing the cache
-  // in the background when the network succeeds.
+  // Stale-While-Revalidate: Return cached version instantly (0ms),
+  // while updating the cache in the background when network responds.
   event.respondWith(
-    caches.match(request).then((cached) => {
-      const networkFetch = fetch(request)
-        .then((response) => {
-          if (response && response.ok) {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-          }
-          return response;
-        })
-        .catch(() => cached);
+    caches.open(CACHE_NAME).then(async (cache) => {
+      const cachedResponse = await cache.match(request);
+      
+      const networkFetch = fetch(request).then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          cache.put(request, networkResponse.clone());
+        }
+        return networkResponse;
+      }).catch((err) => {
+        return cachedResponse;
+      });
 
-      return cached || networkFetch;
+      // Return cached response immediately if available, otherwise wait for network
+      return cachedResponse || networkFetch;
     })
   );
 });

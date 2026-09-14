@@ -688,13 +688,51 @@ import {
     }
   }
 
-  function updateWelcomeTitles() {
-    if (!firebaseProfile) return;
-    const name = firebaseProfile.name || firebaseProfile.username || "";
-    const text = name ? `Welcome to Relay, ${name}!` : "Welcome to Relay!";
-    if (sidebarEmptyTitle) sidebarEmptyTitle.textContent = text;
-    if (chatEmptyTitle) chatEmptyTitle.textContent = text;
+  function hydrateProfileUI(profile) {
+    if (!profile) return;
+    firebaseProfile = profile;
+    updateWelcomeTitles();
+
+    const photo = profile.photoURL;
+    if (photo) {
+      myAvatarInitials.textContent = "";
+      myAvatarInitials.style.backgroundImage = `url('${photo}')`;
+      myAvatarInitials.style.backgroundSize = "cover";
+      myAvatarInitials.style.backgroundPosition = "center";
+      myAvatarInitials.style.color = "transparent";
+    } else {
+      myAvatarInitials.textContent = getInitials(profile.name);
+      myAvatarInitials.style.backgroundImage = "none";
+      myAvatarInitials.style.color = "";
+    }
+    if (profile.name && profile.username) {
+      myProfileBtn.setAttribute("aria-label", `Your profile, ${profile.name}, @${profile.username}`);
+      myProfileBtn.title = `@${profile.username}`;
+    }
   }
+
+  /* ---------------------------------------------------------------------
+     Instant Cache Hydration (0ms load from localStorage)
+     --------------------------------------------------------------------- */
+  try {
+    const cachedProfileRaw = localStorage.getItem("relay_user_profile");
+    if (cachedProfileRaw) {
+      hydrateProfileUI(JSON.parse(cachedProfileRaw));
+    }
+  } catch (e) { /* ignore */ }
+
+  try {
+    const cachedChatsRaw = localStorage.getItem("relay_chats_cache");
+    if (cachedChatsRaw) {
+      const cachedChats = JSON.parse(cachedChatsRaw);
+      if (Array.isArray(cachedChats) && cachedChats.length > 0) {
+        chats = cachedChats;
+        renderConvList(searchInput.value);
+        if (sidebarSkeleton) sidebarSkeleton.hidden = true;
+        if (!activeChatId) showEmptyState();
+      }
+    }
+  } catch (e) { /* ignore */ }
 
   /* ---------------------------------------------------------------------
      Init & Auth State
@@ -712,23 +750,10 @@ import {
       const docSnap = await getDoc(doc(db, "users", user.uid));
       if (docSnap.exists()) {
         firebaseProfile = docSnap.data();
-        updateWelcomeTitles();
-        
-        // Setup UI
-        const photo = firebaseProfile.photoURL || user.photoURL;
-        if (photo) {
-          myAvatarInitials.textContent = "";
-          myAvatarInitials.style.backgroundImage = `url('${photo}')`;
-          myAvatarInitials.style.backgroundSize = "cover";
-          myAvatarInitials.style.backgroundPosition = "center";
-          myAvatarInitials.style.color = "transparent";
-        } else {
-          myAvatarInitials.textContent = getInitials(firebaseProfile.name);
-          myAvatarInitials.style.backgroundImage = "none";
-          myAvatarInitials.style.color = "";
-        }
-        myProfileBtn.setAttribute("aria-label", `Your profile, ${firebaseProfile.name}, @${firebaseProfile.username}`);
-        myProfileBtn.title = `@${firebaseProfile.username}`;
+        try {
+          localStorage.setItem("relay_user_profile", JSON.stringify(firebaseProfile));
+        } catch (e) { /* ignore */ }
+        hydrateProfileUI(firebaseProfile);
         
         if (!firebaseProfile.username) {
           usernameModal.removeAttribute('hidden');
@@ -808,6 +833,18 @@ import {
           isFirstChatsSnapshot = false;
 
           chats = newChats;
+
+          // Cache serializable chats list locally for 0ms instant load next time
+          try {
+            const serializableChats = chats.map(c => ({
+              id: c.id,
+              otherUid: c.otherUid,
+              users: c.users || {},
+              lastMessage: c.lastMessage || "",
+              unreadCounts: c.unreadCounts || {}
+            }));
+            localStorage.setItem("relay_chats_cache", JSON.stringify(serializableChats));
+          } catch (e) { /* ignore */ }
           
           chats.sort((a, b) => {
             const timeA = a.updatedAt ? (a.updatedAt.toMillis ? a.updatedAt.toMillis() : 0) : 0;
