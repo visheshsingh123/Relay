@@ -90,7 +90,7 @@
   <main class="chat" id="chat" aria-label="Chat thread">
 
     <!-- Chat skeleton: shown while auth/data is loading -->
-    <div class="chat-skeleton" id="chatSkeleton" aria-hidden="true">
+    <div class="chat-skeleton" id="chatSkeleton" aria-hidden="true" hidden>
       <div class="chat-skeleton__header">
         <div class="skeleton-circle skeleton-circle--md"></div>
         <div class="chat-skeleton__lines">
@@ -166,6 +166,18 @@
         </svg>
       </button>
     </form>
+
+    <!-- Chat Request Action Card (Accept / Decline) -->
+    <div class="request-banner" id="requestBanner" hidden>
+      <div class="request-banner__content">
+        <p class="request-banner__text" id="requestBannerText"><strong>@user</strong> sent you a message request.</p>
+        <p class="request-banner__sub" id="requestBannerSub">They won't know you've seen their message until you accept.</p>
+        <div class="request-banner__actions" id="requestBannerActions">
+          <button type="button" class="request-btn request-btn--accept" id="acceptRequestBtn">Accept</button>
+          <button type="button" class="request-btn request-btn--reject" id="rejectRequestBtn">Decline</button>
+        </div>
+      </div>
+    </div>
 
     <!-- Welcome Empty State for Main Chat Area -->
     <div class="chat-empty" id="chatEmpty" hidden>

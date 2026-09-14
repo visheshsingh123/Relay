@@ -63,6 +63,12 @@ import {
   const chatSkeleton = document.getElementById("chatSkeleton");
   const sidebarEmptyTitle = document.getElementById("sidebarEmptyTitle");
   const chatEmptyTitle = document.getElementById("chatEmptyTitle");
+  const requestBanner = document.getElementById("requestBanner");
+  const requestBannerText = document.getElementById("requestBannerText");
+  const requestBannerSub = document.getElementById("requestBannerSub");
+  const requestBannerActions = document.getElementById("requestBannerActions");
+  const acceptRequestBtn = document.getElementById("acceptRequestBtn");
+  const rejectRequestBtn = document.getElementById("rejectRequestBtn");
 
   const MOBILE_QUERY = window.matchMedia("(max-width: 767px)");
 
@@ -135,6 +141,15 @@ import {
           timeStr = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
         }
 
+        let requestTagHtml = "";
+        if (conv.status === "pending") {
+          if (conv.requestedTo === firebaseUser.uid) {
+            requestTagHtml = `<span class="request-pill">Request</span>`;
+          } else if (conv.requestedBy === firebaseUser.uid) {
+            requestTagHtml = `<span class="request-pill request-pill--muted">Pending</span>`;
+          }
+        }
+
         const badgeHtml = (unreadCount > 0 && conv.id !== activeChatId)
           ? `<span class="unread-badge" aria-label="${unreadCount} unread messages">${unreadCount > 99 ? "99+" : unreadCount}</span>`
           : "";
@@ -145,7 +160,10 @@ import {
           </span>
           <span class="conv-item__body">
             <span class="conv-item__top">
-              <span class="conv-item__name">${escapeHtml(otherUser.name)}</span>
+              <span class="conv-item__name" style="display:flex;align-items:center;gap:6px;min-width:0;">
+                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(otherUser.name)}</span>
+                ${requestTagHtml}
+              </span>
               <span class="conv-item__time">${timeStr}</span>
             </span>
             <span class="conv-item__preview-row">
@@ -358,16 +376,60 @@ import {
         }
     });
     
-    // Subscribe to chat doc for typing indicator
+    // Subscribe to chat doc for typing indicator & request status updates
     chatDocUnsubscribe = onSnapshot(doc(db, "chats", id), (snap) => {
         if (!snap.exists()) return;
         const data = snap.data();
+        const status = data.status || "accepted";
+        const requestedBy = data.requestedBy;
+        const requestedTo = data.requestedTo;
+
+        if (status === "pending") {
+          if (requestedTo === firebaseUser.uid) {
+            // Current user is the recipient of the request
+            if (composer) composer.hidden = true;
+            if (requestBanner) {
+              requestBanner.hidden = false;
+              if (requestBannerText) {
+                requestBannerText.innerHTML = `<strong>@${escapeHtml(otherUser.username)}</strong> sent you a message request.`;
+              }
+              if (requestBannerSub) {
+                requestBannerSub.hidden = false;
+                requestBannerSub.textContent = "They won't know you've seen their message until you accept.";
+              }
+              if (requestBannerActions) requestBannerActions.hidden = false;
+            }
+          } else {
+            // Current user is the sender of the request
+            if (requestBanner) requestBanner.hidden = true;
+            if (composer) composer.hidden = false;
+            messageInput.disabled = true;
+            messageInput.value = "";
+            messageInput.placeholder = `Message request sent. You can chat once @${otherUser.username} accepts.`;
+            sendBtn.disabled = true;
+            sendBtn.classList.remove("is-active");
+          }
+        } else if (status === "rejected") {
+          if (composer) composer.hidden = true;
+          if (requestBanner) {
+            requestBanner.hidden = false;
+            if (requestBannerText) {
+              requestBannerText.textContent = "This message request was declined.";
+            }
+            if (requestBannerSub) requestBannerSub.hidden = true;
+            if (requestBannerActions) requestBannerActions.hidden = true;
+          }
+        } else {
+          // Accepted / normal chat
+          if (requestBanner) requestBanner.hidden = true;
+          if (composer) composer.hidden = false;
+          updateBlockedUI(otherUser);
+        }
+
         const typing = data.typing || {};
-        
         if (typing[otherUser.uid]) {
             updateChatStatus("Typing...", true);
         }
-        // If not typing, the otherUser listener above handles the status
     });
   }
 
@@ -515,6 +577,46 @@ import {
     }
   });
 
+  if (acceptRequestBtn) {
+    acceptRequestBtn.addEventListener("click", async () => {
+      if (!activeChatId) return;
+      try {
+        acceptRequestBtn.disabled = true;
+        acceptRequestBtn.textContent = "Accepting...";
+        await updateDoc(doc(db, "chats", activeChatId), {
+          status: "accepted"
+        });
+      } catch (err) {
+        console.error("Error accepting chat request:", err);
+        alert("Failed to accept request: " + err.message);
+      } finally {
+        acceptRequestBtn.disabled = false;
+        acceptRequestBtn.textContent = "Accept";
+      }
+    });
+  }
+
+  if (rejectRequestBtn) {
+    rejectRequestBtn.addEventListener("click", async () => {
+      if (!activeChatId) return;
+      const confirmed = window.confirm("Decline this message request?");
+      if (!confirmed) return;
+      try {
+        rejectRequestBtn.disabled = true;
+        rejectRequestBtn.textContent = "Declining...";
+        await updateDoc(doc(db, "chats", activeChatId), {
+          status: "rejected"
+        });
+      } catch (err) {
+        console.error("Error declining chat request:", err);
+        alert("Failed to decline request: " + err.message);
+      } finally {
+        rejectRequestBtn.disabled = false;
+        rejectRequestBtn.textContent = "Decline";
+      }
+    });
+  }
+
   /* ---------------------------------------------------------------------
      Starting a conversation from adduser.html (?to=username)
      --------------------------------------------------------------------- */
@@ -532,9 +634,12 @@ import {
       const chatSnap = await getDoc(chatRef);
       
       if (!chatSnap.exists()) {
-          // Create chat
+          // Create new chat request
           await setDoc(chatRef, {
               participants: [firebaseUser.uid, otherUser.uid],
+              status: "pending",
+              requestedBy: firebaseUser.uid,
+              requestedTo: otherUser.uid,
               updatedAt: serverTimestamp(),
               lastMessage: "",
               users: {
@@ -732,10 +837,11 @@ import {
       if (Array.isArray(cachedChats) && cachedChats.length > 0) {
         chats = cachedChats;
         renderConvList(searchInput.value);
-        if (sidebarSkeleton) sidebarSkeleton.hidden = true;
-        if (!activeChatId) showEmptyState();
       }
     }
+    if (sidebarSkeleton) sidebarSkeleton.hidden = true;
+    if (chatSkeleton) chatSkeleton.hidden = true;
+    if (!activeChatId) showEmptyState();
   } catch (e) { /* ignore */ }
 
   /* ---------------------------------------------------------------------

@@ -1640,3 +1640,102 @@ input:focus-visible,
   border-bottom-right-radius: var(--radius-sm);
 }
 
+/* ==========================================================================
+   Chat Request Banner (Accept / Decline) & Pills
+   ========================================================================== */
+.request-banner {
+  padding: var(--sp-4) var(--sp-5);
+  background: var(--bg-surface-raised);
+  border-top: 1px solid var(--border-hairline);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.2);
+}
+
+.request-banner[hidden] {
+  display: none !important;
+}
+
+.request-banner__content {
+  max-width: 460px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--sp-1);
+}
+
+.request-banner__text {
+  font-size: var(--fs-sm);
+  font-weight: 600;
+  color: var(--text-primary);
+  margin: 0;
+}
+
+.request-banner__sub {
+  font-size: var(--fs-xs);
+  color: var(--text-muted);
+  margin: 0 0 var(--sp-3);
+}
+
+.request-banner__actions {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  width: 100%;
+  justify-content: center;
+}
+
+.request-btn {
+  height: 38px;
+  min-width: 110px;
+  padding: 0 var(--sp-5);
+  border-radius: var(--radius-full);
+  font-size: var(--fs-sm);
+  font-weight: 700;
+  cursor: pointer;
+  border: 1px solid transparent;
+  transition: background var(--duration-fast) var(--ease-standard),
+              transform var(--duration-fast) var(--ease-standard),
+              border-color var(--duration-fast) var(--ease-standard);
+}
+
+.request-btn--accept {
+  background: var(--accent);
+  color: var(--text-primary);
+}
+.request-btn--accept:hover {
+  background: var(--accent-hover);
+  transform: translateY(-1px);
+}
+
+.request-btn--reject {
+  background: rgba(224, 86, 86, 0.12);
+  color: #ff6b6b;
+  border-color: rgba(224, 86, 86, 0.25);
+}
+.request-btn--reject:hover {
+  background: rgba(224, 86, 86, 0.25);
+  border-color: rgba(224, 86, 86, 0.4);
+  transform: translateY(-1px);
+}
+
+.request-pill {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(110, 86, 207, 0.25);
+  color: var(--highlight);
+  border: 1px solid rgba(156, 129, 245, 0.35);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+}
+.request-pill--muted {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-muted);
+  border-color: transparent;
+}
+
