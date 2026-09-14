@@ -23,6 +23,8 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
 
   const fullNameInput = document.getElementById("fullName");
   const usernameInput = document.getElementById("username");
+  const bioInput = document.getElementById("bio");
+  const bioCharCount = document.getElementById("bioCharCount");
   const emailInput = document.getElementById("email");
   const newPasswordInput = document.getElementById("newPassword");
   const confirmPasswordInput = document.getElementById("confirmPassword");
@@ -45,6 +47,15 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
 
   const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   const USERNAME_RE = /^[a-zA-Z][a-zA-Z0-9_]{2,19}$/;
+
+  function updateBioCounter() {
+    if (!bioInput || !bioCharCount) return;
+    bioCharCount.textContent = `${bioInput.value.length} / 160`;
+  }
+
+  if (bioInput) {
+    bioInput.addEventListener("input", updateBioCounter);
+  }
 
   function getInitials(name) {
     if (!name) return "??";
@@ -71,6 +82,10 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
     if (!profile) return;
     if (profile.name) fullNameInput.value = profile.name;
     if (profile.username) usernameInput.value = profile.username;
+    if (profile.bio !== undefined && bioInput) {
+      bioInput.value = profile.bio || "";
+      updateBioCounter();
+    }
     if (profile.email) emailInput.value = profile.email;
     setAvatarImage(profile.photoURL, profile.name || profile.username);
   }
@@ -436,12 +451,14 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
     }
 
     // Save all details to Firestore
+    const newBio = (bioInput ? bioInput.value : "").trim();
     const userRef = doc(db, "users", user.uid);
     await setDoc(userRef, {
       uid: user.uid,
       name: newName,
       username: newUsername.toLowerCase(),
       email: newEmail,
+      bio: newBio,
       updatedAt: new Date().toISOString()
     }, { merge: true }); // merge true so we don't overwrite createdAt
 
@@ -452,7 +469,8 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
         ...cached,
         name: newName,
         username: newUsername.toLowerCase(),
-        email: newEmail
+        email: newEmail,
+        bio: newBio
       }));
     } catch (e) { /* ignore */ }
   }

@@ -39,9 +39,13 @@ import {
   const backBtn = document.getElementById("backBtn");
   const chatEl = document.getElementById("chat");
   const chatHeaderEl = document.getElementById("chatHeader");
+  const chatIdentity = document.getElementById("chatIdentity");
   const chatMenu = document.getElementById("chatMenu");
   const chatMenuBtn = document.getElementById("chatMenuBtn");
   const chatMenuDropdown = document.getElementById("chatMenuDropdown");
+  const viewProfileChatMenuBtn = document.getElementById("viewProfileChatMenuBtn");
+  const viewProfileChatMenuBtnIcon = document.getElementById("viewProfileChatMenuBtnIcon");
+  const viewProfileChatMenuBtnLabel = document.getElementById("viewProfileChatMenuBtnLabel");
   const pinChatMenuBtn = document.getElementById("pinChatMenuBtn");
   const pinChatMenuBtnLabel = document.getElementById("pinChatMenuBtnLabel");
   const muteChatMenuBtn = document.getElementById("muteChatMenuBtn");
@@ -86,6 +90,36 @@ import {
   const forwardPreview = document.getElementById("forwardPreview");
   const forwardSearchInput = document.getElementById("forwardSearchInput");
   const forwardList = document.getElementById("forwardList");
+
+  const newGroupBtn = document.getElementById("newGroupBtn");
+  const createGroupModal = document.getElementById("createGroupModal");
+  const createGroupClose = document.getElementById("createGroupClose");
+  const createGroupForm = document.getElementById("createGroupForm");
+  const groupNameInput = document.getElementById("groupNameInput");
+  const groupMemberSearch = document.getElementById("groupMemberSearch");
+  const groupSelectedBadges = document.getElementById("groupSelectedBadges");
+  const groupMemberChecklist = document.getElementById("groupMemberChecklist");
+  const createGroupSubmit = document.getElementById("createGroupSubmit");
+
+  const groupInfoModal = document.getElementById("groupInfoModal");
+  const groupInfoClose = document.getElementById("groupInfoClose");
+  const groupInfoAvatar = document.getElementById("groupInfoAvatar");
+  const groupInfoName = document.getElementById("groupInfoName");
+  const groupInfoSub = document.getElementById("groupInfoSub");
+  const groupAddMemberBtn = document.getElementById("groupAddMemberBtn");
+  const groupLeaveBtn = document.getElementById("groupLeaveBtn");
+  const groupMembersList = document.getElementById("groupMembersList");
+
+  const groupAddMemberModal = document.getElementById("groupAddMemberModal");
+  const groupAddMemberClose = document.getElementById("groupAddMemberClose");
+  const addMemberSearch = document.getElementById("addMemberSearch");
+  const addMemberChecklist = document.getElementById("addMemberChecklist");
+  const groupAddMemberSubmit = document.getElementById("groupAddMemberSubmit");
+
+  let activeChatGroup = null;
+  let selectedGroupMemberUids = new Set();
+  let selectedAddMemberUids = new Set();
+  let availableContactsCache = [];
 
   let editingMessageId = null;
   let replyingTo = null;       // { id, text, senderName }
@@ -513,17 +547,132 @@ import {
     }
   }
 
-  function openChatContextMenu(e, conv, otherUser) {
+  function openUserProfile(user) {
+    if (!user) return;
+    const identifier = user.uid ? `uid=${encodeURIComponent(user.uid)}` : `username=${encodeURIComponent(user.username)}`;
+    window.location.href = `profileview.html?${identifier}`;
+  }
+
+  function openChatContextMenu(e, conv, target) {
     e.preventDefault();
     closeContextMenu();
 
-    const isBlocked = otherUser.uid ? isUserBlocked(otherUser.uid) : false;
+    const isGroup = !!conv.isGroup;
     const isPinned = Array.isArray(firebaseProfile?.pinnedChats) && firebaseProfile.pinnedChats.includes(conv.id);
     const isMuted = isChatMuted(conv.id);
 
     const menu = document.createElement("div");
     menu.className = "context-menu";
+
+    if (isGroup) {
+      menu.innerHTML = `
+        <button type="button" class="context-menu__item" id="ctxGroupInfo">
+          <span>👥</span> Group Info
+        </button>
+        <button type="button" class="context-menu__item" id="ctxPin">
+          <span>📌</span> ${isPinned ? 'Unpin Group' : 'Pin Group'}
+        </button>
+        <button type="button" class="context-menu__item" id="ctxMute">
+          <span>${isMuted ? '🔔' : '🔕'}</span> ${isMuted ? 'Unmute Group' : 'Mute Group'}
+        </button>
+        <button type="button" class="context-menu__item" id="ctxSearch">
+          <span>🔍</span> Search in Chat
+        </button>
+        <button type="button" class="context-menu__item" id="ctxSummarize">
+          <span>📝</span> Summarize
+        </button>
+        <button type="button" class="context-menu__item context-menu__item--danger" id="ctxLeaveGroup">
+          <span>🚪</span> Leave Group
+        </button>
+        <button type="button" class="context-menu__item context-menu__item--danger" id="ctxDelete">
+          <span>🗑️</span> Delete Messages
+        </button>
+      `;
+
+      document.body.appendChild(menu);
+      activeContextMenu = menu;
+
+      const menuWidth = 190;
+      const menuHeight = 260;
+      let posX = e.clientX;
+      let posY = e.clientY;
+
+      if (posX + menuWidth > window.innerWidth) posX = window.innerWidth - menuWidth - 10;
+      if (posY + menuHeight > window.innerHeight) posY = window.innerHeight - menuHeight - 10;
+
+      menu.style.left = `${Math.max(10, posX)}px`;
+      menu.style.top = `${Math.max(10, posY)}px`;
+
+      menu.querySelector("#ctxGroupInfo").addEventListener("click", () => {
+        closeContextMenu();
+        selectConversation(conv.id, conv);
+        setTimeout(() => openGroupInfoModal(), 100);
+      });
+
+      menu.querySelector("#ctxPin").addEventListener("click", () => {
+        closeContextMenu();
+        toggleChatPin(conv.id);
+      });
+
+      menu.querySelector("#ctxMute").addEventListener("click", () => {
+        closeContextMenu();
+        if (isMuted) {
+          unmuteChat(conv.id);
+        } else {
+          openMuteModal(conv.id, conv.groupName || "Group");
+        }
+      });
+
+      menu.querySelector("#ctxSearch").addEventListener("click", () => {
+        closeContextMenu();
+        selectConversation(conv.id, conv);
+        setTimeout(() => {
+          if (threadSearchBar) {
+            threadSearchBar.hidden = false;
+            if (threadSearchBtn) threadSearchBtn.setAttribute("aria-expanded", "true");
+            if (threadSearchInput) threadSearchInput.focus();
+            updateThreadSearchResults();
+          }
+        }, 100);
+      });
+
+      menu.querySelector("#ctxSummarize").addEventListener("click", () => {
+        closeContextMenu();
+        selectConversation(conv.id, conv);
+        setTimeout(() => summarizeAndOpenAI(), 150);
+      });
+
+      menu.querySelector("#ctxLeaveGroup").addEventListener("click", async () => {
+        closeContextMenu();
+        const confirmed = await showCustomConfirm(`Are you sure you want to leave "${conv.groupName || 'this group'}"?`, "Leave Group");
+        if (!confirmed) return;
+        try {
+          await updateDoc(doc(db, "chats", conv.id), {
+            participants: arrayRemove(firebaseUser.uid),
+            [`users.${firebaseUser.uid}`]: deleteField(),
+            [`unreadCounts.${firebaseUser.uid}`]: deleteField()
+          });
+          if (activeChatId === conv.id) closeChatPane();
+          showCustomAlert("You have left the group.", "Left Group");
+        } catch (err) {
+          showCustomAlert("Failed to leave group: " + err.message, "Error");
+        }
+      });
+
+      menu.querySelector("#ctxDelete").addEventListener("click", () => {
+        closeContextMenu();
+        deleteChat(conv.id);
+      });
+      return;
+    }
+
+    const otherUser = target;
+    const isBlocked = (otherUser && otherUser.uid) ? isUserBlocked(otherUser.uid) : false;
+
     menu.innerHTML = `
+        <button type="button" class="context-menu__item" id="ctxViewProfile">
+          <span>👤</span> View Profile
+        </button>
         <button type="button" class="context-menu__item" id="ctxPin">
           <span>📌</span> ${isPinned ? 'Unpin Chat' : 'Pin Chat'}
         </button>
@@ -548,7 +697,7 @@ import {
     activeContextMenu = menu;
 
     const menuWidth = 190;
-    const menuHeight = 230;
+    const menuHeight = 260;
     let posX = e.clientX;
     let posY = e.clientY;
 
@@ -557,6 +706,11 @@ import {
 
     menu.style.left = `${Math.max(10, posX)}px`;
     menu.style.top = `${Math.max(10, posY)}px`;
+
+    menu.querySelector("#ctxViewProfile").addEventListener("click", () => {
+      closeContextMenu();
+      openUserProfile(otherUser);
+    });
 
     menu.querySelector("#ctxPin").addEventListener("click", () => {
       closeContextMenu();
@@ -696,6 +850,10 @@ import {
     if (!forwardList) return;
     const q = filter.trim().toLowerCase();
     const availableChats = chats.filter(c => {
+      if (c.isGroup) {
+        if (!q) return true;
+        return (c.groupName || "").toLowerCase().includes(q);
+      }
       if (!c.users || !c.otherUid) return false;
       const other = c.users[c.otherUid];
       if (!other) return false;
@@ -709,12 +867,24 @@ import {
     }
 
     forwardList.innerHTML = availableChats.map(c => {
-      const other = { uid: c.otherUid, ...c.users[c.otherUid] };
+      let avatarHtml = "";
+      let nameHtml = "";
+      if (c.isGroup) {
+        avatarHtml = c.groupPhotoURL
+          ? `<span class="avatar avatar--sm" style="background-image:url('${escapeHtml(c.groupPhotoURL)}');background-size:cover;background-position:center;color:transparent;"></span>`
+          : `<span class="avatar avatar--sm" style="background:rgba(110,86,207,0.3);border:1px solid var(--accent);font-size:1rem;display:flex;align-items:center;justify-content:center;">👥</span>`;
+        nameHtml = `${escapeHtml(c.groupName || 'Group')} <span class="group-pill" style="margin-left:4px;">Group</span>`;
+      } else {
+        const other = { uid: c.otherUid, ...c.users[c.otherUid] };
+        avatarHtml = renderAvatarHtml(other, "avatar--sm");
+        nameHtml = `${escapeHtml(other.name)} <span style="font-size:var(--fs-xs);color:var(--text-muted);margin-left:4px;">@${escapeHtml(other.username)}</span>`;
+      }
+
       return `
         <div class="forward-item" data-chat-id="${c.id}">
           <div class="forward-item__info">
-            ${renderAvatarHtml(other, "avatar--sm")}
-            <span class="forward-item__name">${escapeHtml(other.name)} <span style="font-size:var(--fs-xs);color:var(--text-muted);margin-left:4px;">@${escapeHtml(other.username)}</span></span>
+            ${avatarHtml}
+            <span class="forward-item__name">${nameHtml}</span>
           </div>
           <button type="button" class="forward-item__send" data-chat-id="${c.id}">Send</button>
         </div>
@@ -742,25 +912,471 @@ import {
     const textToForward = forwardingMessage.text;
     closeForwardModal();
 
+    const targetConv = chats.find(c => c.id === targetChatId);
+    const myName = firebaseProfile?.name || firebaseUser.displayName || "User";
+
     try {
       await addDoc(collection(db, "chats", targetChatId, "messages"), {
         text: textToForward,
         senderId: firebaseUser.uid,
+        senderName: myName,
+        senderUsername: firebaseProfile?.username || "user",
+        senderPhotoURL: firebaseProfile?.photoURL || null,
         forwarded: true,
         createdAt: serverTimestamp(),
         read: false
       });
 
-      await updateDoc(doc(db, "chats", targetChatId), {
-        lastMessage: textToForward,
-        updatedAt: serverTimestamp()
-      });
+      if (targetConv && targetConv.isGroup) {
+        const unreadUpdates = {};
+        (targetConv.participants || []).forEach(pUid => {
+          if (pUid !== firebaseUser.uid) {
+            unreadUpdates[`unreadCounts.${pUid}`] = increment(1);
+          }
+        });
+        await updateDoc(doc(db, "chats", targetChatId), {
+          lastMessage: textToForward,
+          lastSenderName: myName,
+          updatedAt: serverTimestamp(),
+          ...unreadUpdates
+        });
+      } else {
+        const recipientUid = targetConv?.otherUid;
+        const unreadField = recipientUid ? { [`unreadCounts.${recipientUid}`]: increment(1) } : {};
+        await updateDoc(doc(db, "chats", targetChatId), {
+          lastMessage: textToForward,
+          updatedAt: serverTimestamp(),
+          ...unreadField
+        });
+      }
 
       showCustomAlert("Message forwarded successfully.", "Forwarded ➡️");
     } catch (err) {
       console.error("Error forwarding message:", err);
       showCustomAlert("Failed to forward message: " + err.message, "Error");
     }
+  }
+
+  /* ---------------------------------------------------------------------
+     Group Chats: Creation, Participant Picker, and Group Info
+     --------------------------------------------------------------------- */
+  async function fetchAllAvailableContacts() {
+    const contactsMap = new Map();
+
+    // Only include people who are in our sidebar conversation menu / active chats list
+    chats.forEach(c => {
+      if (!c.isGroup && c.users && c.otherUid && c.otherUid !== AI_USER.uid) {
+        const u = c.users[c.otherUid];
+        if (u) {
+          contactsMap.set(c.otherUid, { 
+            uid: c.otherUid, 
+            name: u.name || u.username || "User", 
+            username: u.username || "user", 
+            photoURL: u.photoURL || null 
+          });
+        }
+      }
+    });
+
+    availableContactsCache = Array.from(contactsMap.values());
+    return availableContactsCache;
+  }
+
+  function renderSelectedGroupBadges() {
+    if (!groupSelectedBadges) return;
+    if (selectedGroupMemberUids.size === 0) {
+      groupSelectedBadges.innerHTML = `<span style="font-size:var(--fs-xs);color:var(--text-muted);font-style:italic;">No members selected yet</span>`;
+      return;
+    }
+
+    groupSelectedBadges.innerHTML = Array.from(selectedGroupMemberUids).map(uid => {
+      const contact = availableContactsCache.find(c => c.uid === uid) || { name: "User" };
+      return `
+        <span class="group-selected-chip">
+          <span>${escapeHtml(contact.name.split(" ")[0])}</span>
+          <button type="button" class="group-selected-chip__remove" data-uid="${uid}" aria-label="Remove member">✕</button>
+        </span>
+      `;
+    }).join("");
+
+    groupSelectedBadges.querySelectorAll(".group-selected-chip__remove").forEach(btn => {
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const uid = btn.dataset.uid;
+        selectedGroupMemberUids.delete(uid);
+        renderSelectedGroupBadges();
+        renderGroupMemberChecklist(groupMemberSearch?.value || "");
+      });
+    });
+  }
+
+  function renderGroupMemberChecklist(filter = "") {
+    if (!groupMemberChecklist) return;
+    const q = filter.trim().toLowerCase();
+    const filtered = availableContactsCache.filter(u => {
+      if (!q) return true;
+      return (u.name || "").toLowerCase().includes(q) || (u.username || "").toLowerCase().includes(q);
+    });
+
+    if (filtered.length === 0) {
+      const emptyMsg = availableContactsCache.length === 0 
+        ? "No contacts in your menu yet. Add contacts to your chat list first."
+        : "No matching contacts found.";
+      groupMemberChecklist.innerHTML = `<p style="text-align:center;font-size:var(--fs-xs);color:var(--text-muted);padding:14px;">${emptyMsg}</p>`;
+      return;
+    }
+
+    groupMemberChecklist.innerHTML = filtered.map(u => {
+      const isChecked = selectedGroupMemberUids.has(u.uid);
+      const photo = u.photoURL || DEFAULT_AVATAR;
+      return `
+        <div class="group-member-item ${isChecked ? 'is-selected' : ''}" data-uid="${u.uid}">
+          <div class="group-member-item__left">
+            <span class="avatar avatar--sm" style="background-image:url('${escapeHtml(photo)}');background-size:cover;background-position:center;color:transparent;"></span>
+            <span class="group-member-item__name">${escapeHtml(u.name)} <span class="group-member-item__handle">@${escapeHtml(u.username)}</span></span>
+          </div>
+          <input type="checkbox" class="group-member-item__checkbox" data-uid="${u.uid}" ${isChecked ? 'checked' : ''}>
+        </div>
+      `;
+    }).join("");
+
+    groupMemberChecklist.querySelectorAll(".group-member-item").forEach(item => {
+      item.addEventListener("click", (e) => {
+        const uid = item.dataset.uid;
+        const checkbox = item.querySelector(".group-member-item__checkbox");
+        if (e.target !== checkbox) {
+          checkbox.checked = !checkbox.checked;
+        }
+        if (checkbox.checked) {
+          selectedGroupMemberUids.add(uid);
+          item.classList.add("is-selected");
+        } else {
+          selectedGroupMemberUids.delete(uid);
+          item.classList.remove("is-selected");
+        }
+        renderSelectedGroupBadges();
+      });
+    });
+  }
+
+  async function openCreateGroupModal() {
+    if (!createGroupModal) return;
+    selectedGroupMemberUids.clear();
+    if (groupNameInput) groupNameInput.value = "";
+    if (groupMemberSearch) groupMemberSearch.value = "";
+    renderSelectedGroupBadges();
+    createGroupModal.removeAttribute("hidden");
+    await fetchAllAvailableContacts();
+    renderGroupMemberChecklist("");
+    if (groupNameInput) groupNameInput.focus();
+  }
+
+  function closeCreateGroupModal() {
+    if (createGroupModal) createGroupModal.setAttribute("hidden", "true");
+  }
+
+  if (newGroupBtn) newGroupBtn.addEventListener("click", openCreateGroupModal);
+  if (createGroupClose) createGroupClose.addEventListener("click", closeCreateGroupModal);
+  if (groupMemberSearch) {
+    groupMemberSearch.addEventListener("input", () => {
+      renderGroupMemberChecklist(groupMemberSearch.value);
+    });
+  }
+
+  if (createGroupForm) {
+    createGroupForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const name = (groupNameInput?.value || "").trim();
+      if (!name) {
+        showCustomAlert("Please enter a group name.", "Name Required");
+        return;
+      }
+      if (selectedGroupMemberUids.size === 0) {
+        showCustomAlert("Please select at least 1 contact to add to the group.", "Select Members");
+        return;
+      }
+
+      createGroupSubmit.disabled = true;
+      createGroupSubmit.querySelector(".auth-submit__label").textContent = "Creating...";
+
+      try {
+        const participantUids = [firebaseUser.uid, ...Array.from(selectedGroupMemberUids)];
+        const usersMap = {
+          [firebaseUser.uid]: {
+            name: firebaseProfile?.name || firebaseUser.displayName || "User",
+            username: firebaseProfile?.username || "user",
+            photoURL: firebaseProfile?.photoURL || null
+          }
+        };
+        const unreadCountsMap = {
+          [firebaseUser.uid]: 0
+        };
+
+        participantUids.forEach(uid => {
+          if (uid !== firebaseUser.uid) {
+            const contact = availableContactsCache.find(c => c.uid === uid) || {};
+            usersMap[uid] = {
+              name: contact.name || "Member",
+              username: contact.username || "user",
+              photoURL: contact.photoURL || null
+            };
+            unreadCountsMap[uid] = 0;
+          }
+        });
+
+        const newChatRef = await addDoc(collection(db, "chats"), {
+          isGroup: true,
+          groupName: name,
+          groupPhotoURL: null,
+          createdBy: firebaseUser.uid,
+          admins: [firebaseUser.uid],
+          participants: participantUids,
+          users: usersMap,
+          lastMessage: "Group created",
+          lastSenderName: firebaseProfile?.name || "User",
+          updatedAt: serverTimestamp(),
+          unreadCounts: unreadCountsMap
+        });
+
+        closeCreateGroupModal();
+        showCustomAlert(`Group "${name}" created!`, "Group Created 👥");
+
+        const newGroupObj = {
+          id: newChatRef.id,
+          isGroup: true,
+          groupName: name,
+          participants: participantUids,
+          users: usersMap,
+          admins: [firebaseUser.uid]
+        };
+        selectConversation(newChatRef.id, newGroupObj);
+      } catch (err) {
+        console.error("Error creating group:", err);
+        showCustomAlert("Failed to create group: " + err.message, "Error");
+      } finally {
+        createGroupSubmit.disabled = false;
+        createGroupSubmit.querySelector(".auth-submit__label").textContent = "Create Group";
+      }
+    });
+  }
+
+  /* ── Group Info Modal & Management ──────────────────────────────── */
+  function openGroupInfoModal() {
+    if (!activeChatGroup || !groupInfoModal) return;
+    const group = activeChatGroup;
+    const count = (group.participants || []).length;
+
+    if (groupInfoName) groupInfoName.textContent = group.groupName || "Group";
+    if (groupInfoSub) groupInfoSub.textContent = `${count} member${count > 1 ? 's' : ''}`;
+
+    if (groupInfoAvatar) {
+      if (group.groupPhotoURL) {
+        groupInfoAvatar.textContent = "";
+        groupInfoAvatar.style.backgroundImage = `url('${group.groupPhotoURL}')`;
+        groupInfoAvatar.style.backgroundSize = "cover";
+      } else {
+        groupInfoAvatar.textContent = "👥";
+        groupInfoAvatar.style.backgroundImage = "none";
+      }
+    }
+
+    renderGroupMembersList();
+    groupInfoModal.removeAttribute("hidden");
+  }
+
+  function closeGroupInfoModal() {
+    if (groupInfoModal) groupInfoModal.setAttribute("hidden", "true");
+  }
+
+  if (groupInfoClose) groupInfoClose.addEventListener("click", closeGroupInfoModal);
+
+  function renderGroupMembersList() {
+    if (!groupMembersList || !activeChatGroup) return;
+    const group = activeChatGroup;
+    const isCurrentUserAdmin = Array.isArray(group.admins) && group.admins.includes(firebaseUser.uid);
+    const participants = group.participants || [];
+
+    groupMembersList.innerHTML = participants.map(uid => {
+      const u = (group.users && group.users[uid]) || { name: "Member", username: "user" };
+      const isMemberAdmin = Array.isArray(group.admins) && group.admins.includes(uid);
+      const isSelf = uid === firebaseUser.uid;
+      const photo = u.photoURL || DEFAULT_AVATAR;
+
+      const removeBtnHtml = (isCurrentUserAdmin && !isSelf)
+        ? `<button type="button" class="group-member-remove-btn" data-uid="${uid}" title="Remove member">✕ Remove</button>`
+        : "";
+
+      return `
+        <div class="group-member-row" data-uid="${uid}">
+          <div class="group-member-row__info">
+            <span class="avatar avatar--sm" style="background-image:url('${escapeHtml(photo)}');background-size:cover;background-position:center;color:transparent;"></span>
+            <span class="group-member-row__name">
+              ${escapeHtml(u.name)} ${isSelf ? '<span style="color:var(--text-muted);font-weight:normal;">(You)</span>' : ''}
+              ${isMemberAdmin ? '<span class="group-admin-badge">Admin</span>' : ''}
+            </span>
+          </div>
+          ${removeBtnHtml}
+        </div>
+      `;
+    }).join("");
+
+    groupMembersList.querySelectorAll(".group-member-remove-btn").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const targetUid = btn.dataset.uid;
+        await removeMemberFromGroup(activeChatGroup.id, targetUid);
+      });
+    });
+  }
+
+  async function removeMemberFromGroup(groupId, memberUid) {
+    const confirmed = await showCustomConfirm("Remove this member from the group?", "Remove Member");
+    if (!confirmed || !groupId || !memberUid) return;
+
+    try {
+      await updateDoc(doc(db, "chats", groupId), {
+        participants: arrayRemove(memberUid),
+        [`users.${memberUid}`]: deleteField(),
+        [`unreadCounts.${memberUid}`]: deleteField()
+      });
+      if (activeChatGroup) {
+        activeChatGroup.participants = (activeChatGroup.participants || []).filter(u => u !== memberUid);
+      }
+      renderGroupMembersList();
+      showCustomAlert("Member removed from group.", "Updated");
+    } catch (err) {
+      showCustomAlert("Failed to remove member: " + err.message, "Error");
+    }
+  }
+
+  if (groupLeaveBtn) {
+    groupLeaveBtn.addEventListener("click", async () => {
+      if (!activeChatGroup) return;
+      const confirmed = await showCustomConfirm("Are you sure you want to leave this group chat?", "Leave Group");
+      if (!confirmed) return;
+
+      const groupId = activeChatGroup.id;
+      closeGroupInfoModal();
+
+      try {
+        await updateDoc(doc(db, "chats", groupId), {
+          participants: arrayRemove(firebaseUser.uid),
+          [`users.${firebaseUser.uid}`]: deleteField(),
+          [`unreadCounts.${firebaseUser.uid}`]: deleteField()
+        });
+        closeChatPane();
+        showCustomAlert("You have left the group.", "Left Group");
+      } catch (err) {
+        showCustomAlert("Failed to leave group: " + err.message, "Error");
+      }
+    });
+  }
+
+  /* ── Add Member to Existing Group ────────────────────────────────── */
+  async function openGroupAddMemberModal() {
+    if (!activeChatGroup || !groupAddMemberModal) return;
+    selectedAddMemberUids.clear();
+    if (addMemberSearch) addMemberSearch.value = "";
+    groupAddMemberModal.removeAttribute("hidden");
+    await fetchAllAvailableContacts();
+    renderAddMemberChecklist("");
+  }
+
+  function closeGroupAddMemberModal() {
+    if (groupAddMemberModal) groupAddMemberModal.setAttribute("hidden", "true");
+  }
+
+  if (groupAddMemberBtn) groupAddMemberBtn.addEventListener("click", openGroupAddMemberModal);
+  if (groupAddMemberClose) groupAddMemberClose.addEventListener("click", closeGroupAddMemberModal);
+
+  if (addMemberSearch) {
+    addMemberSearch.addEventListener("input", () => {
+      renderAddMemberChecklist(addMemberSearch.value);
+    });
+  }
+
+  function renderAddMemberChecklist(filter = "") {
+    if (!addMemberChecklist || !activeChatGroup) return;
+    const currentMembers = new Set(activeChatGroup.participants || []);
+    const q = filter.trim().toLowerCase();
+
+    const candidates = availableContactsCache.filter(u => {
+      if (currentMembers.has(u.uid)) return false;
+      if (!q) return true;
+      return (u.name || "").toLowerCase().includes(q) || (u.username || "").toLowerCase().includes(q);
+    });
+
+    if (candidates.length === 0) {
+      const emptyMsg = availableContactsCache.length === 0
+        ? "No contacts in your menu yet."
+        : "All contacts in your menu are already in this group.";
+      addMemberChecklist.innerHTML = `<p style="text-align:center;font-size:var(--fs-xs);color:var(--text-muted);padding:14px;">${emptyMsg}</p>`;
+      return;
+    }
+
+    addMemberChecklist.innerHTML = candidates.map(u => {
+      const isChecked = selectedAddMemberUids.has(u.uid);
+      const photo = u.photoURL || DEFAULT_AVATAR;
+      return `
+        <div class="group-member-item ${isChecked ? 'is-selected' : ''}" data-uid="${u.uid}">
+          <div class="group-member-item__left">
+            <span class="avatar avatar--sm" style="background-image:url('${escapeHtml(photo)}');background-size:cover;background-position:center;color:transparent;"></span>
+            <span class="group-member-item__name">${escapeHtml(u.name)} <span class="group-member-item__handle">@${escapeHtml(u.username)}</span></span>
+          </div>
+          <input type="checkbox" class="group-member-item__checkbox" data-uid="${u.uid}" ${isChecked ? 'checked' : ''}>
+        </div>
+      `;
+    }).join("");
+
+    addMemberChecklist.querySelectorAll(".group-member-item").forEach(item => {
+      item.addEventListener("click", (e) => {
+        const uid = item.dataset.uid;
+        const checkbox = item.querySelector(".group-member-item__checkbox");
+        if (e.target !== checkbox) {
+          checkbox.checked = !checkbox.checked;
+        }
+        if (checkbox.checked) {
+          selectedAddMemberUids.add(uid);
+          item.classList.add("is-selected");
+        } else {
+          selectedAddMemberUids.delete(uid);
+          item.classList.remove("is-selected");
+        }
+      });
+    });
+  }
+
+  if (groupAddMemberSubmit) {
+    groupAddMemberSubmit.addEventListener("click", async () => {
+      if (!activeChatGroup || selectedAddMemberUids.size === 0) {
+        showCustomAlert("Please select at least 1 contact to add.", "Selection Required");
+        return;
+      }
+
+      const groupId = activeChatGroup.id;
+      const uidsToAdd = Array.from(selectedAddMemberUids);
+      closeGroupAddMemberModal();
+
+      try {
+        const updatePayload = {
+          participants: arrayUnion(...uidsToAdd)
+        };
+        uidsToAdd.forEach(uid => {
+          const contact = availableContactsCache.find(c => c.uid === uid) || {};
+          updatePayload[`users.${uid}`] = {
+            name: contact.name || "Member",
+            username: contact.username || "user",
+            photoURL: contact.photoURL || null
+          };
+          updatePayload[`unreadCounts.${uid}`] = 0;
+        });
+
+        await updateDoc(doc(db, "chats", groupId), updatePayload);
+        showCustomAlert("Members added to group successfully!", "Members Added 👥");
+        openGroupInfoModal();
+      } catch (err) {
+        showCustomAlert("Failed to add members: " + err.message, "Error");
+      }
+    });
   }
 
   function openMessageContextMenu(e, msg) {
@@ -877,6 +1493,8 @@ import {
       senderName = "You";
     } else if (isAI) {
       senderName = "Relay AI";
+    } else if (msg.senderName) {
+      senderName = msg.senderName;
     } else if (activeChatUser?.name) {
       senderName = activeChatUser.name;
     }
@@ -981,12 +1599,16 @@ import {
     chats
       .filter((c) => {
         const q = query.replace(/^@/, "");
-        const otherUser = c.users[c.otherUid];
+        if (c.isGroup) {
+          return (c.groupName || "").toLowerCase().includes(query);
+        }
+        const otherUser = c.users && c.otherUid ? c.users[c.otherUid] : null;
         if (!otherUser) return false;
         return otherUser.name.toLowerCase().includes(query) || otherUser.username.toLowerCase().includes(q);
       })
       .forEach((conv) => {
-        const otherUser = { uid: conv.otherUid, ...conv.users[conv.otherUid] };
+        const isGroup = !!conv.isGroup;
+        const otherUser = isGroup ? null : { uid: conv.otherUid, ...conv.users[conv.otherUid] };
         const unreadCount = (conv.unreadCounts && conv.unreadCounts[firebaseUser.uid]) || 0;
         const isPinned = Array.isArray(firebaseProfile?.pinnedChats) && firebaseProfile.pinnedChats.includes(conv.id);
         const isMuted = isChatMuted(conv.id);
@@ -1000,9 +1622,13 @@ import {
         if (isPinned) item.classList.add("is-pinned");
         if (isMuted) item.classList.add("is-muted");
 
-        item.setAttribute("aria-label", `Open conversation with ${otherUser.name}${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`);
+        const displayName = isGroup ? (conv.groupName || "Group") : (otherUser?.name || "User");
+        item.setAttribute("aria-label", `Open conversation with ${displayName}${unreadCount > 0 ? `, ${unreadCount} unread` : ""}`);
 
-        const lastText = conv.lastMessage || "No messages yet";
+        let lastText = conv.lastMessage || "No messages yet";
+        if (isGroup && conv.lastSenderName && conv.lastMessage) {
+          lastText = `${conv.lastSenderName.split(" ")[0]}: ${conv.lastMessage}`;
+        }
 
         let timeStr = "";
         if (conv.updatedAt) {
@@ -1011,7 +1637,7 @@ import {
         }
 
         let requestTagHtml = "";
-        if (conv.status === "pending") {
+        if (!isGroup && conv.status === "pending") {
           if (conv.requestedTo === firebaseUser.uid) {
             requestTagHtml = `<span class="request-pill">Request</span>`;
           } else if (conv.requestedBy === firebaseUser.uid) {
@@ -1019,6 +1645,7 @@ import {
           }
         }
 
+        const groupBadgeHtml = isGroup ? `<span class="group-pill">Group</span>` : "";
         const pinIconHtml = isPinned ? `<span class="conv-item__pin" title="Pinned conversation" aria-label="Pinned">📌</span>` : "";
         const muteIconHtml = isMuted ? `<span class="conv-item__mute" title="Muted conversation" aria-label="Muted">🔕</span>` : "";
 
@@ -1026,14 +1653,24 @@ import {
           ? `<span class="unread-badge" aria-label="${unreadCount} unread messages">${unreadCount > 99 ? "99+" : unreadCount}</span>`
           : "";
 
+        let avatarHtml = "";
+        if (isGroup) {
+          avatarHtml = conv.groupPhotoURL
+            ? `<span class="avatar avatar--sm" style="background-image: url('${escapeHtml(conv.groupPhotoURL)}'); background-size: cover; background-position: center; color: transparent;"></span>`
+            : `<span class="avatar avatar--sm" style="background: rgba(110, 86, 207, 0.3); border: 1px solid var(--accent); font-size: 1.05rem; display:flex; align-items:center; justify-content:center;">👥</span>`;
+        } else {
+          avatarHtml = renderAvatarHtml(otherUser, "avatar--sm");
+        }
+
         item.innerHTML = `
           <span class="avatar-wrap">
-            ${renderAvatarHtml(otherUser, "avatar--sm")}
+            ${avatarHtml}
           </span>
           <span class="conv-item__body">
             <span class="conv-item__top">
-              <span class="conv-item__name" style="display:flex;align-items:center;gap:6px;min-width:0;">
-                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(otherUser.name)}</span>
+              <span class="conv-item__name" style="display:flex;align-items:center;gap:4px;min-width:0;">
+                <span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${escapeHtml(displayName)}</span>
+                ${groupBadgeHtml}
                 ${pinIconHtml}
                 ${muteIconHtml}
                 ${requestTagHtml}
@@ -1047,15 +1684,16 @@ import {
           </span>
         `;
 
-        item.addEventListener("click", () => selectConversation(conv.id, otherUser));
-        item.addEventListener("contextmenu", (e) => openChatContextMenu(e, conv, otherUser));
+        const targetArg = isGroup ? conv : otherUser;
+        item.addEventListener("click", () => selectConversation(conv.id, targetArg));
+        item.addEventListener("contextmenu", (e) => openChatContextMenu(e, conv, targetArg));
 
         let touchTimer = null;
         item.addEventListener("touchstart", (e) => {
           touchTimer = setTimeout(() => {
             const touch = e.touches[0];
             if (touch) {
-              openChatContextMenu({ preventDefault: () => {}, clientX: touch.clientX, clientY: touch.clientY }, conv, otherUser);
+              openChatContextMenu({ preventDefault: () => {}, clientX: touch.clientX, clientY: touch.clientY }, conv, targetArg);
             }
           }, 500);
         }, { passive: true });
@@ -1171,10 +1809,16 @@ import {
         </div>
       `;
 
+      let senderNameHtml = "";
+      if (activeChatGroup && !isMe) {
+        senderNameHtml = `<div class="bubble__sender-name">${escapeHtml(msg.senderName || msg.senderUsername || 'Member')}</div>`;
+      }
+
       row.innerHTML = `
         <div class="reply-swipe-hint">↩️</div>
         ${floatingReactionHtml}
         <div class="bubble" id="msg-${msg.id}" data-id="${msg.id}">
+          ${senderNameHtml}
           ${forwardedHtml}
           ${quoteHtml}
           <span class="bubble__text">${renderedTextHtml}</span>
@@ -1321,15 +1965,36 @@ import {
     return `Last seen ${date.toLocaleDateString()}`;
   }
 
-  function renderChatHeader(otherUser) {
-    chatNameEl.textContent = otherUser.name;
-    const photo = (otherUser && otherUser.photoURL) || DEFAULT_AVATAR;
-    chatAvatarEl.textContent = "";
-    chatAvatarEl.style.backgroundImage = `url('${photo}')`;
-    chatAvatarEl.style.backgroundSize = "cover";
-    chatAvatarEl.style.backgroundPosition = "center";
-    chatAvatarEl.style.color = "transparent";
-    chatStatusEl.innerHTML = `<span class="chat__handle">@${escapeHtml(otherUser.username)}</span>`;
+  function renderChatHeader(target) {
+    if (activeChatGroup) {
+      chatNameEl.textContent = activeChatGroup.groupName || "Group";
+      const photo = activeChatGroup.groupPhotoURL;
+      chatAvatarEl.textContent = photo ? "" : "👥";
+      if (photo) {
+        chatAvatarEl.style.backgroundImage = `url('${photo}')`;
+        chatAvatarEl.style.backgroundSize = "cover";
+        chatAvatarEl.style.backgroundPosition = "center";
+        chatAvatarEl.style.color = "transparent";
+      } else {
+        chatAvatarEl.style.backgroundImage = "none";
+        chatAvatarEl.style.color = "var(--text-primary)";
+        chatAvatarEl.style.fontSize = "1.2rem";
+        chatAvatarEl.style.display = "flex";
+        chatAvatarEl.style.alignItems = "center";
+        chatAvatarEl.style.justifyContent = "center";
+      }
+      const count = (activeChatGroup.participants || []).length;
+      chatStatusEl.innerHTML = `<span class="chat__handle">${count} member${count !== 1 ? 's' : ''} • Tap for group info</span>`;
+    } else if (target) {
+      chatNameEl.textContent = target.name || "User";
+      const photo = (target && target.photoURL) || DEFAULT_AVATAR;
+      chatAvatarEl.textContent = "";
+      chatAvatarEl.style.backgroundImage = `url('${photo}')`;
+      chatAvatarEl.style.backgroundSize = "cover";
+      chatAvatarEl.style.backgroundPosition = "center";
+      chatAvatarEl.style.color = "transparent";
+      chatStatusEl.innerHTML = `<span class="chat__handle">@${escapeHtml(target.username || "")}</span>`;
+    }
   }
   
   function updateChatStatus(statusText, isOnline) {
@@ -1376,12 +2041,20 @@ import {
   /* ---------------------------------------------------------------------
      Selecting a conversation
      --------------------------------------------------------------------- */
-  function selectConversation(id, otherUser) {
+  function selectConversation(id, target) {
     cancelEditingMessage();
     cancelReplying();
     closeThreadSearch();
     activeChatId = id;
-    activeChatUser = otherUser;
+
+    const isGroup = !!(target?.isGroup || chats.find(c => c.id === id)?.isGroup);
+    if (isGroup) {
+      activeChatGroup = target?.isGroup ? target : chats.find(c => c.id === id);
+      activeChatUser = null;
+    } else {
+      activeChatGroup = null;
+      activeChatUser = target;
+    }
 
     // Push or update history state so Android system back gesture / back button returns to conversation list
     if (!history.state || !history.state.chatOpen) {
@@ -1391,8 +2064,15 @@ import {
     }
 
     renderConvList(searchInput.value);
-    renderChatHeader(otherUser);
-    updateBlockedUI(otherUser);
+    renderChatHeader(target);
+    if (isGroup) {
+      messageInput.disabled = false;
+      messageInput.placeholder = `Message ${activeChatGroup?.groupName || "group"}…`;
+      sendBtn.disabled = true;
+      sendBtn.classList.remove("is-active");
+    } else {
+      updateBlockedUI(activeChatUser);
+    }
     showChatPane();
 
     // Trigger smooth transition animation when switching conversations
@@ -1451,30 +2131,30 @@ import {
         markMessagesRead();
     });
     
-    // Subscribe to the other user's profile changes, online status & block status
-    otherUserUnsubscribe = onSnapshot(doc(db, "users", otherUser.uid), (snap) => {
-        if (!snap.exists()) return;
-        const data = snap.data();
-        
-        // Sync latest profile data (like photoURL, blockedUsers, preferences)
-        otherUser.photoURL = data.photoURL || null;
-        otherUser.name = data.name || otherUser.name;
-        otherUser.blockedUsers = data.blockedUsers || [];
-        otherUser.preferences = data.preferences || {};
+    if (!isGroup && activeChatUser?.uid) {
+      // Subscribe to the other user's profile changes, online status & block status
+      otherUserUnsubscribe = onSnapshot(doc(db, "users", activeChatUser.uid), (snap) => {
+          if (!snap.exists()) return;
+          const data = snap.data();
+          
+          activeChatUser.photoURL = data.photoURL || null;
+          activeChatUser.name = data.name || activeChatUser.name;
+          activeChatUser.blockedUsers = data.blockedUsers || [];
+          activeChatUser.preferences = data.preferences || {};
 
-        renderChatHeader(otherUser);
-        renderConvList(searchInput.value);
-        updateBlockedUI(otherUser);
+          renderChatHeader(activeChatUser);
+          renderConvList(searchInput.value);
+          updateBlockedUI(activeChatUser);
 
-        // Only show online status if the other user has it enabled
-        if (data.preferences?.onlineStatus === false) {
-            updateChatStatus("", false); // hide status
-        } else if (data.online) {
-            updateChatStatus("Online", true);
-        } else {
-            updateChatStatus(formatLastSeen(data.lastSeen), false);
-        }
-    });
+          if (data.preferences?.onlineStatus === false) {
+              updateChatStatus("", false);
+          } else if (data.online) {
+              updateChatStatus("Online", true);
+          } else {
+              updateChatStatus(formatLastSeen(data.lastSeen), false);
+          }
+      });
+    }
 
     // Mark messages as read when this chat is open (if MY read receipts are on)
     const markMessagesRead = () => {
@@ -1490,18 +2170,40 @@ import {
     chatDocUnsubscribe = onSnapshot(doc(db, "chats", id), (snap) => {
         if (!snap.exists()) return;
         const data = snap.data();
+
+        if (isGroup) {
+          activeChatGroup = { id: snap.id, ...data };
+          renderChatHeader(activeChatGroup);
+
+          const typing = data.typing || {};
+          const typingUsers = Object.keys(typing)
+            .filter(uid => uid !== firebaseUser.uid && typing[uid])
+            .map(uid => (data.users && data.users[uid]?.name?.split(" ")[0]) || "Someone");
+
+          if (typingUsers.length === 1) {
+            updateChatStatus(`${typingUsers[0]} is typing...`, true);
+          } else if (typingUsers.length > 1) {
+            updateChatStatus(`${typingUsers.length} people are typing...`, true);
+          } else {
+            const count = (data.participants || []).length;
+            chatStatusEl.innerHTML = `<span class="chat__handle">${count} member${count !== 1 ? 's' : ''} • Tap for group info</span>`;
+          }
+          return;
+        }
+
+        if (!activeChatUser) return;
+
         const status = data.status || "accepted";
         const requestedBy = data.requestedBy;
         const requestedTo = data.requestedTo;
 
         if (status === "pending") {
           if (requestedTo === firebaseUser.uid) {
-            // Current user is the recipient of the request
             if (composer) composer.hidden = true;
             if (requestBanner) {
               requestBanner.hidden = false;
               if (requestBannerText) {
-                requestBannerText.innerHTML = `<strong>@${escapeHtml(otherUser.username)}</strong> sent you a message request.`;
+                requestBannerText.innerHTML = `<strong>@${escapeHtml(activeChatUser.username || "User")}</strong> sent you a message request.`;
               }
               if (requestBannerSub) {
                 requestBannerSub.hidden = false;
@@ -1510,12 +2212,11 @@ import {
               if (requestBannerActions) requestBannerActions.hidden = false;
             }
           } else {
-            // Current user is the sender of the request
             if (requestBanner) requestBanner.hidden = true;
             if (composer) composer.hidden = false;
             messageInput.disabled = true;
             messageInput.value = "";
-            messageInput.placeholder = `Message request sent. You can chat once @${otherUser.username} accepts.`;
+            messageInput.placeholder = `Message request sent. You can chat once @${activeChatUser.username || "User"} accepts.`;
             sendBtn.disabled = true;
             sendBtn.classList.remove("is-active");
           }
@@ -1530,14 +2231,13 @@ import {
             if (requestBannerActions) requestBannerActions.hidden = true;
           }
         } else {
-          // Accepted / normal chat
           if (requestBanner) requestBanner.hidden = true;
           if (composer) composer.hidden = false;
-          updateBlockedUI(otherUser);
+          updateBlockedUI(activeChatUser);
         }
 
         const typing = data.typing || {};
-        if (typing[otherUser.uid]) {
+        if (typing[activeChatUser.uid]) {
             updateChatStatus("Typing...", true);
         }
     });
@@ -1568,6 +2268,7 @@ import {
     appEl.classList.remove("is-chat-open");
     activeChatId = null;
     activeChatUser = null;
+    activeChatGroup = null;
     if (messagesUnsubscribe) { messagesUnsubscribe(); messagesUnsubscribe = null; }
     if (otherUserUnsubscribe) { otherUserUnsubscribe(); otherUserUnsubscribe = null; }
     if (chatDocUnsubscribe) { chatDocUnsubscribe(); chatDocUnsubscribe = null; }
@@ -1588,8 +2289,18 @@ import {
 
     const isPinned = Array.isArray(firebaseProfile?.pinnedChats) && firebaseProfile.pinnedChats.includes(activeChatId);
     const isMuted = isChatMuted(activeChatId);
-    const targetUid = activeChatUser?.uid || activeChatUser?.id;
-    const isBlocked = targetUid ? isUserBlocked(targetUid) : false;
+
+    if (activeChatGroup) {
+      if (viewProfileChatMenuBtnLabel) viewProfileChatMenuBtnLabel.textContent = "Group Info";
+      if (viewProfileChatMenuBtnIcon) viewProfileChatMenuBtnIcon.textContent = "👥";
+      if (blockUserBtnLabel) blockUserBtnLabel.textContent = "Leave Group";
+    } else {
+      const targetUid = activeChatUser?.uid || activeChatUser?.id;
+      const isBlocked = targetUid ? isUserBlocked(targetUid) : false;
+      if (viewProfileChatMenuBtnLabel) viewProfileChatMenuBtnLabel.textContent = "View Profile";
+      if (viewProfileChatMenuBtnIcon) viewProfileChatMenuBtnIcon.textContent = "👤";
+      if (blockUserBtnLabel) blockUserBtnLabel.textContent = isBlocked ? "Unblock user" : "Block user";
+    }
 
     if (pinChatMenuBtnLabel) {
       pinChatMenuBtnLabel.textContent = isPinned ? "Unpin conversation" : "Pin conversation";
@@ -1599,9 +2310,6 @@ import {
     }
     if (muteChatMenuBtnIcon) {
       muteChatMenuBtnIcon.textContent = isMuted ? "🔔" : "🔕";
-    }
-    if (blockUserBtnLabel) {
-      blockUserBtnLabel.textContent = isBlocked ? "Unblock user" : "Block user";
     }
 
     chatMenuDropdown.hidden = false;
@@ -1618,9 +2326,26 @@ import {
     if (!chatMenu.contains(e.target)) closeChatMenu();
   });
 
-  document.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") closeChatMenu();
-  });
+  if (chatIdentity) {
+    chatIdentity.addEventListener("click", () => {
+      if (activeChatGroup) {
+        openGroupInfoModal();
+      } else if (activeChatUser) {
+        openUserProfile(activeChatUser);
+      }
+    });
+  }
+
+  if (viewProfileChatMenuBtn) {
+    viewProfileChatMenuBtn.addEventListener("click", () => {
+      closeChatMenu();
+      if (activeChatGroup) {
+        openGroupInfoModal();
+      } else if (activeChatUser) {
+        openUserProfile(activeChatUser);
+      }
+    });
+  }
 
   if (pinChatMenuBtn) {
     pinChatMenuBtn.addEventListener("click", () => {
@@ -1636,7 +2361,8 @@ import {
       if (isChatMuted(activeChatId)) {
         unmuteChat(activeChatId);
       } else {
-        openMuteModal(activeChatId, activeChatUser?.username || activeChatUser?.name);
+        const nameToDisplay = activeChatGroup ? activeChatGroup.groupName : (activeChatUser?.username || activeChatUser?.name);
+        openMuteModal(activeChatId, nameToDisplay);
       }
     });
   }
@@ -1662,7 +2388,9 @@ import {
 
   blockUserBtn.addEventListener("click", async () => {
     closeChatMenu();
-    if (activeChatUser) {
+    if (activeChatGroup) {
+      if (groupLeaveBtn) groupLeaveBtn.click();
+    } else if (activeChatUser) {
       await toggleBlockUser(activeChatUser);
     }
   });
@@ -2345,8 +3073,12 @@ Do NOT use robotic headers like "Mood & Tone:" or numbered bullet points. Keep i
       closeChatPane();
     } else if (e.state && e.state.chatId && e.state.chatId !== activeChatId) {
       const targetChat = chats.find(c => c.id === e.state.chatId);
-      if (targetChat && targetChat.otherUser) {
-        selectConversation(targetChat.id, targetChat.otherUser);
+      if (targetChat) {
+        if (targetChat.isGroup) {
+          selectConversation(targetChat.id, targetChat);
+        } else if (targetChat.otherUser) {
+          selectConversation(targetChat.id, targetChat.otherUser);
+        }
       }
     }
   });
@@ -2380,7 +3112,7 @@ Do NOT use robotic headers like "Mood & Tone:" or numbered bullet points. Keep i
 
   composer.addEventListener("submit", async (e) => {
     e.preventDefault();
-    if (activeChatUser && (isUserBlocked(activeChatUser.uid) || isBlockedByOther(activeChatUser))) {
+    if (!activeChatGroup && activeChatUser && (isUserBlocked(activeChatUser.uid) || isBlockedByOther(activeChatUser))) {
       showCustomAlert("You cannot send messages in this conversation.", "Blocked");
       return;
     }
@@ -2426,8 +3158,6 @@ Do NOT use robotic headers like "Mood & Tone:" or numbered bullet points. Keep i
     messageInput.value = "";
     sendBtn.disabled = true;
     sendBtn.classList.remove("is-active");
-    // On mobile, blurring the input dismisses the keyboard cleanly;
-    // re-focusing after send causes a keyboard pop + layout resize flash.
     if (MOBILE_QUERY.matches) {
       messageInput.blur();
     } else {
@@ -2437,10 +3167,17 @@ Do NOT use robotic headers like "Mood & Tone:" or numbered bullet points. Keep i
     clearTimeout(typingTimeout);
     
     try {
+        const myName = firebaseProfile?.name || firebaseUser.displayName || "User";
+        const myUsername = firebaseProfile?.username || "user";
+        const myPhoto = firebaseProfile?.photoURL || null;
+
         // Add message
         const msgDoc = {
             text,
             senderId: firebaseUser.uid,
+            senderName: myName,
+            senderUsername: myUsername,
+            senderPhotoURL: myPhoto,
             createdAt: serverTimestamp(),
             read: false
         };
@@ -2450,33 +3187,48 @@ Do NOT use robotic headers like "Mood & Tone:" or numbered bullet points. Keep i
         await addDoc(collection(db, "chats", chatId, "messages"), msgDoc);
         playSendSound();
         
-        // Update parent chat doc: last message, timestamp, and recipient's unread count
-        const recipientUid = activeChatUser.uid || activeChatUser.id;
-        await updateDoc(doc(db, "chats", chatId), {
+        if (activeChatGroup) {
+          const unreadUpdates = {};
+          (activeChatGroup.participants || []).forEach(pUid => {
+            if (pUid !== firebaseUser.uid) {
+              unreadUpdates[`unreadCounts.${pUid}`] = increment(1);
+            }
+          });
+
+          await updateDoc(doc(db, "chats", chatId), {
+            lastMessage: text,
+            lastSenderName: myName,
+            updatedAt: serverTimestamp(),
+            ...unreadUpdates
+          });
+        } else if (activeChatUser) {
+          const recipientUid = activeChatUser.uid || activeChatUser.id;
+          await updateDoc(doc(db, "chats", chatId), {
             lastMessage: text,
             updatedAt: serverTimestamp(),
             [`unreadCounts.${recipientUid}`]: increment(1)
-        });
+          });
 
-        // If recipient is Relay AI, send an automated AI response after brief delay
-        if (recipientUid === AI_USER.uid) {
-          setTimeout(async () => {
-            try {
-              const replyText = await generateAIReply(text);
-              await addDoc(collection(db, "chats", chatId, "messages"), {
-                text: replyText,
-                senderId: AI_USER.uid,
-                createdAt: serverTimestamp(),
-                read: true
-              });
-              await updateDoc(doc(db, "chats", chatId), {
-                lastMessage: replyText,
-                updatedAt: serverTimestamp()
-              });
-            } catch (replyErr) {
-              console.error("Error generating AI reply:", replyErr);
-            }
-          }, 800);
+          // If recipient is Relay AI, send an automated AI response after brief delay
+          if (recipientUid === AI_USER.uid) {
+            setTimeout(async () => {
+              try {
+                const replyText = await generateAIReply(text);
+                await addDoc(collection(db, "chats", chatId, "messages"), {
+                  text: replyText,
+                  senderId: AI_USER.uid,
+                  createdAt: serverTimestamp(),
+                  read: true
+                });
+                await updateDoc(doc(db, "chats", chatId), {
+                  lastMessage: replyText,
+                  updatedAt: serverTimestamp()
+                });
+              } catch (replyErr) {
+                console.error("Error generating AI reply:", replyErr);
+              }
+            }, 800);
+          }
         }
     } catch (err) {
         console.error("Error sending message:", err);
@@ -2745,8 +3497,22 @@ Do NOT use robotic headers like "Mood & Tone:" or numbered bullet points. Keep i
       
       const params = new URLSearchParams(window.location.search);
       const toUsername = params.get("to");
+      const action = params.get("action");
       if (toUsername) {
-        startConversationWith(toUsername);
+        startConversationWith(toUsername).then(() => {
+          if (action === "search") {
+            setTimeout(() => {
+              if (threadSearchBar) {
+                threadSearchBar.hidden = false;
+                if (threadSearchBtn) threadSearchBtn.setAttribute("aria-expanded", "true");
+                if (threadSearchInput) threadSearchInput.focus();
+                updateThreadSearchResults();
+              }
+            }, 300);
+          } else if (action === "summarize") {
+            setTimeout(() => summarizeAndOpenAI(), 400);
+          }
+        });
         window.history.replaceState({}, "", "index.html");
       }
   }

@@ -27,6 +27,14 @@
       <h1 class="logo"><a class="logo__link" href="index.html">Relay<span class="logo__dot">.</span></a></h1>
 
       <div class="sidebar__actions">
+        <button class="icon-btn" id="newGroupBtn" aria-label="Create new group" title="New group">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
+            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+            <circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+        </button>
+
         <button class="icon-btn" id="searchToggle" aria-label="Search conversations" aria-expanded="false">
           <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
             <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/>
@@ -120,7 +128,7 @@
         </svg>
       </button>
 
-      <div class="chat__identity">
+      <div class="chat__identity" id="chatIdentity" title="View profile">
         <span class="avatar avatar--md" id="chatAvatar"></span>
         <div class="chat__who">
           <span class="chat__name" id="chatName"></span>
@@ -145,6 +153,10 @@
             </svg>
           </button>
           <div class="menu__dropdown" id="chatMenuDropdown" role="menu" hidden>
+            <button type="button" class="menu__item" id="viewProfileChatMenuBtn" role="menuitem">
+              <span id="viewProfileChatMenuBtnIcon" style="font-size:16px;line-height:1;">👤</span>
+              <span id="viewProfileChatMenuBtnLabel">View Profile</span>
+            </button>
             <button type="button" class="menu__item" id="pinChatMenuBtn" role="menuitem">
               <span style="font-size:16px;line-height:1;">📌</span>
               <span id="pinChatMenuBtnLabel">Pin conversation</span>
@@ -375,6 +387,90 @@
       <div class="forward-list" id="forwardList">
         <!-- Rendered dynamically -->
       </div>
+    </div>
+  </div>
+
+  <!-- ============ CREATE GROUP MODAL ============ -->
+  <div class="modal-overlay" id="createGroupModal" hidden>
+    <div class="modal group-modal" role="dialog" aria-modal="true" aria-labelledby="createGroupModalTitle">
+      <div class="forward-modal__header">
+        <h2 class="modal__title" id="createGroupModalTitle">👥 New Group Chat</h2>
+        <button type="button" class="editing-bar__cancel" id="createGroupClose" aria-label="Close group modal">✕</button>
+      </div>
+
+      <form id="createGroupForm" class="auth-form" style="gap:12px;">
+        <div class="group-avatar-picker-row">
+          <div class="group-avatar-preview" id="groupAvatarPreview">👥</div>
+          <div style="flex:1;">
+            <label class="field__label" for="groupNameInput">Group Name</label>
+            <input type="text" id="groupNameInput" class="field__input" placeholder="e.g. Design Squad" maxlength="35" required autocomplete="off">
+          </div>
+        </div>
+
+        <div>
+          <label class="field__label">Select Participants</label>
+          <input type="text" id="groupMemberSearch" class="field__input" placeholder="Search contacts…" style="margin-bottom:8px;">
+          <div class="group-selected-badges" id="groupSelectedBadges"></div>
+          <div class="group-member-checklist" id="groupMemberChecklist">
+            <!-- Rendered dynamically -->
+          </div>
+        </div>
+
+        <button type="submit" class="auth-submit" id="createGroupSubmit" style="margin-top:8px;">
+          <span class="auth-submit__label">Create Group</span>
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <!-- ============ GROUP INFO MODAL ============ -->
+  <div class="modal-overlay" id="groupInfoModal" hidden>
+    <div class="modal group-modal" role="dialog" aria-modal="true" aria-labelledby="groupInfoModalTitle">
+      <div class="forward-modal__header">
+        <h2 class="modal__title" id="groupInfoModalTitle">👥 Group Info</h2>
+        <button type="button" class="editing-bar__cancel" id="groupInfoClose" aria-label="Close group info">✕</button>
+      </div>
+
+      <div class="group-info-hero">
+        <div class="group-info-avatar" id="groupInfoAvatar">👥</div>
+        <h3 class="group-info-name" id="groupInfoName">Group Name</h3>
+        <p class="group-info-sub" id="groupInfoSub">0 members</p>
+      </div>
+
+      <div class="group-info-actions-row">
+        <button type="button" class="btn-secondary group-info-action-btn" id="groupAddMemberBtn">
+          <span>➕</span> Add Member
+        </button>
+        <button type="button" class="btn-secondary group-info-action-btn group-info-action-btn--danger" id="groupLeaveBtn">
+          <span>🚪</span> Leave Group
+        </button>
+      </div>
+
+      <div class="group-members-section">
+        <div class="profileview-section__label">Participants</div>
+        <div class="group-members-list" id="groupMembersList">
+          <!-- Rendered dynamically -->
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ============ ADD MEMBERS MODAL ============ -->
+  <div class="modal-overlay" id="groupAddMemberModal" hidden>
+    <div class="modal group-modal" role="dialog" aria-modal="true" aria-labelledby="groupAddMemberTitle">
+      <div class="forward-modal__header">
+        <h2 class="modal__title" id="groupAddMemberTitle">➕ Add Members</h2>
+        <button type="button" class="editing-bar__cancel" id="groupAddMemberClose" aria-label="Close modal">✕</button>
+      </div>
+
+      <input type="text" id="addMemberSearch" class="field__input" placeholder="Search contacts to add…" style="margin-bottom:10px;">
+      <div class="group-member-checklist" id="addMemberChecklist" style="max-height:220px;">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <button type="button" class="auth-submit" id="groupAddMemberSubmit" style="margin-top:12px;">
+        <span class="auth-submit__label">Add to Group</span>
+      </button>
     </div>
   </div>
 

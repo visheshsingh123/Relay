@@ -90,6 +90,16 @@ import { collection, query, where, limit, getDocs } from "https://www.gstatic.co
           </span>
         `;
 
+        const avatarWrap = item.querySelector(".avatar-wrap");
+        if (avatarWrap) {
+          avatarWrap.style.cursor = "pointer";
+          avatarWrap.title = "View profile";
+          avatarWrap.addEventListener("click", (e) => {
+            e.stopPropagation();
+            window.location.href = `profileview.html?uid=${encodeURIComponent(user.uid)}`;
+          });
+        }
+
         item.addEventListener("click", () => startConversation(user));
         resultsEl.appendChild(item);
       });

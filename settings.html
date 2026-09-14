@@ -68,6 +68,22 @@
               <p class="field__error" id="usernameError" hidden>Choose a valid username.</p>
             </div>
           </div>
+
+          <div class="field" style="margin-top: var(--sp-4);">
+            <div class="field__label-row">
+              <label class="field__label" for="bio">Bio</label>
+              <span class="field__hint" id="bioCharCount" style="font-size: var(--fs-xs); color: var(--text-muted);">0 / 160</span>
+            </div>
+            <textarea
+              class="field__input field__textarea"
+              id="bio"
+              name="bio"
+              rows="3"
+              maxlength="160"
+              placeholder="Tell people a little bit about yourself…"
+            ></textarea>
+            <p class="field__hint">Brief description shown on your profile view.</p>
+          </div>
         </section>
 
         <!-- ============ ACCOUNT ============ -->
