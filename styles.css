@@ -532,25 +532,34 @@ input:focus-visible,
 }
 
 /* Themed scrollbars — matches the app's violet/purple palette instead
-   of the OS default. Applied to any scrollable pane (thread, conv list). */
+   of the OS default. Applied to any scrollable pane (thread, conv list,
+   settings, adduser). */
 .thread,
-.conv-list {
+.conv-list,
+.settings-body,
+.adduser-body {
   scrollbar-width: thin; /* Firefox */
   scrollbar-color: var(--bg-surface-raised) transparent; /* Firefox */
 }
 
 .thread::-webkit-scrollbar,
-.conv-list::-webkit-scrollbar {
+.conv-list::-webkit-scrollbar,
+.settings-body::-webkit-scrollbar,
+.adduser-body::-webkit-scrollbar {
   width: 8px;
 }
 
 .thread::-webkit-scrollbar-track,
-.conv-list::-webkit-scrollbar-track {
+.conv-list::-webkit-scrollbar-track,
+.settings-body::-webkit-scrollbar-track,
+.adduser-body::-webkit-scrollbar-track {
   background: transparent;
 }
 
 .thread::-webkit-scrollbar-thumb,
-.conv-list::-webkit-scrollbar-thumb {
+.conv-list::-webkit-scrollbar-thumb,
+.settings-body::-webkit-scrollbar-thumb,
+.adduser-body::-webkit-scrollbar-thumb {
   background-color: var(--bg-surface-raised);
   border-radius: var(--radius-full);
   border: 2px solid transparent;
@@ -558,7 +567,9 @@ input:focus-visible,
 }
 
 .thread::-webkit-scrollbar-thumb:hover,
-.conv-list::-webkit-scrollbar-thumb:hover {
+.conv-list::-webkit-scrollbar-thumb:hover,
+.settings-body::-webkit-scrollbar-thumb:hover,
+.adduser-body::-webkit-scrollbar-thumb:hover {
   background-color: var(--accent);
 }
 
