@@ -31,25 +31,6 @@ import { collection, query, where, limit, getDocs } from "https://www.gstatic.co
     return name.substring(0, 2).toUpperCase();
   }
 
-  try {
-    const cachedProfileRaw = localStorage.getItem("relay_user_profile");
-    if (cachedProfileRaw) {
-      const p = JSON.parse(cachedProfileRaw);
-      const myAvatarInitials = document.getElementById("myAvatarInitials");
-      if (myAvatarInitials) {
-        if (p.photoURL) {
-          myAvatarInitials.textContent = "";
-          myAvatarInitials.style.backgroundImage = `url('${p.photoURL}')`;
-          myAvatarInitials.style.backgroundSize = "cover";
-          myAvatarInitials.style.backgroundPosition = "center";
-          myAvatarInitials.style.color = "transparent";
-        } else if (p.name || p.username) {
-          myAvatarInitials.textContent = getInitials(p.name || p.username);
-        }
-      }
-    }
-  } catch (e) { /* ignore */ }
-
   /* ---------------------------------------------------------------------
      Render results for the current query
      --------------------------------------------------------------------- */

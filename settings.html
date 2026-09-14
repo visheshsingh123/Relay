@@ -15,49 +15,19 @@
 </head>
 <body class="settings-body">
 
-<div class="app is-chat-open" id="app">
+<div class="settings-page">
 
-  <!-- ============ SIDEBAR : CONVERSATION LIST ============ -->
-  <aside class="sidebar" id="sidebar" aria-label="Conversations">
-    <header class="sidebar__header">
-      <h1 class="logo"><a class="logo__link" href="index.html">Relay<span class="logo__dot">.</span></a></h1>
-      <div class="sidebar__actions">
-        <a class="avatar-badge" href="settings.html" aria-label="Your profile">
-          <span class="avatar avatar--me" id="myAvatarInitials">--</span>
-        </a>
-      </div>
-    </header>
-
-    <nav class="conv-list" id="convList" aria-label="Conversation list">
-      <!-- Navigates back to main chats on click -->
-    </nav>
-
-    <a class="fab" href="adduser.html" aria-label="Start a new conversation">
-      <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true">
-        <line x1="12" y1="5" x2="12" y2="19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-        <line x1="5" y1="12" x2="19" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+  <header class="settings-topbar">
+    <h1 class="logo"><a class="logo__link" href="index.html">Relay<span class="logo__dot">.</span></a></h1>
+    <a class="icon-btn" id="backToApp" href="index.html" aria-label="Back to conversations">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
+        <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
       </svg>
     </a>
-  </aside>
+  </header>
 
-  <!-- ============ MAIN : RIGHT SIDE SETTINGS PANEL ============ -->
-  <main class="chat settings-panel" id="chat" aria-label="Settings panel">
-    <header class="chat__header">
-      <a class="icon-btn back-btn" id="backToApp" href="index.html" aria-label="Back to conversations" style="display: inline-flex !important;">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true">
-          <path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
-        </svg>
-      </a>
-
-      <div class="chat__identity">
-        <div class="chat__who">
-          <span class="chat__name" style="font-weight: 800; font-size: 1.125rem;">Settings</span>
-        </div>
-      </div>
-    </header>
-
-    <div class="settings-scroll-container">
-      <div class="settings-card">
+  <main class="settings-main">
+    <div class="settings-card">
       <h2 class="settings-card__title">Settings</h2>
 
       <form id="settingsForm" novalidate>
