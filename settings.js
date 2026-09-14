@@ -71,14 +71,18 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
   /* ---------------------------------------------------------------------
      Instant Cache Hydration (0ms load from localStorage)
      --------------------------------------------------------------------- */
+  function applyProfileToForm(profile) {
+    if (!profile) return;
+    if (profile.name) fullNameInput.value = profile.name;
+    if (profile.username) usernameInput.value = profile.username;
+    if (profile.email) emailInput.value = profile.email;
+    setAvatarImage(profile.photoURL, profile.name || profile.username);
+  }
+
   try {
     const cachedProfileRaw = localStorage.getItem("relay_user_profile");
     if (cachedProfileRaw) {
-      const p = JSON.parse(cachedProfileRaw);
-      if (p.name) fullNameInput.value = p.name;
-      if (p.username) usernameInput.value = p.username;
-      if (p.email) emailInput.value = p.email;
-      setAvatarImage(p.photoURL, p.name);
+      applyProfileToForm(JSON.parse(cachedProfileRaw));
     }
   } catch (e) { /* ignore */ }
 
@@ -91,24 +95,17 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
       return;
     }
 
-    emailInput.value = user.email || emailInput.value || "";
-    fullNameInput.value = user.displayName || fullNameInput.value || "";
-    setAvatarImage(user.photoURL, user.displayName);
+    if (!fullNameInput.value && user.displayName) fullNameInput.value = user.displayName;
+    if (!emailInput.value && user.email) emailInput.value = user.email;
 
     try {
       const docSnap = await getDoc(doc(db, "users", user.uid));
       if (docSnap.exists()) {
         const data = docSnap.data();
-        const displayName = data.name || user.displayName || "";
-        fullNameInput.value = displayName;
-        usernameInput.value = data.username || "";
-        emailInput.value = data.email || user.email || "";
-        
+        applyProfileToForm(data);
         try {
           localStorage.setItem("relay_user_profile", JSON.stringify(data));
         } catch (e) { /* ignore */ }
-
-        setAvatarImage(data.photoURL || user.photoURL, displayName);
       }
     } catch (err) {
       console.error("Error fetching profile:", err);
@@ -222,6 +219,13 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
       } catch (e) { /* ignore */ }
 
       await setDoc(doc(db, "users", user.uid), { photoURL: finalUrl }, { merge: true });
+
+      // Update local profile cache
+      try {
+        const cached = JSON.parse(localStorage.getItem("relay_user_profile") || "{}");
+        cached.photoURL = finalUrl;
+        localStorage.setItem("relay_user_profile", JSON.stringify(cached));
+      } catch (e) { /* ignore */ }
 
       // 4. Update avatar on current page instantly
       setAvatarImage(finalUrl, fullNameInput.value);
@@ -383,6 +387,17 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
       email: newEmail,
       updatedAt: new Date().toISOString()
     }, { merge: true }); // merge true so we don't overwrite createdAt
+
+    // Update local profile cache
+    try {
+      const cached = JSON.parse(localStorage.getItem("relay_user_profile") || "{}");
+      localStorage.setItem("relay_user_profile", JSON.stringify({
+        ...cached,
+        name: newName,
+        username: newUsername.toLowerCase(),
+        email: newEmail
+      }));
+    } catch (e) { /* ignore */ }
   }
 
   form.addEventListener("submit", async (e) => {
