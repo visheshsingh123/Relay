@@ -15,38 +15,62 @@
 </head>
 <body class="adduser-body">
 
-<div class="adduser-page">
+<div class="app is-chat-open" id="app">
 
-  <header class="adduser-topbar">
-    <h1 class="logo"><a class="logo__link" href="index.html">Relay<span class="logo__dot">.</span></a></h1>
-    <a class="icon-btn" id="backToApp" href="index.html" aria-label="Back to conversations">
-      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
-        <path d="M6 6l12 12M18 6L6 18" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-      </svg>
-    </a>
-  </header>
-
-  <main class="adduser-main">
-    <div class="adduser-block">
-      <h2 class="adduser-heading">Connect with People</h2>
-
-      <label class="sr-only" for="usernameSearch">Search by name or username</label>
-      <div class="adduser-searchbar">
-        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
-          <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/>
-          <line x1="20" y1="20" x2="15.8" y2="15.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
-        </svg>
-        <input
-          type="search"
-          id="usernameSearch"
-          placeholder="example : @VisheshSingh"
-          autocomplete="off"
-          autofocus
-        >
+  <!-- ============ SIDEBAR : CONVERSATION LIST ============ -->
+  <aside class="sidebar" id="sidebar" aria-label="Conversations">
+    <header class="sidebar__header">
+      <h1 class="logo"><a class="logo__link" href="index.html">Relay<span class="logo__dot">.</span></a></h1>
+      <div class="sidebar__actions">
+        <a class="avatar-badge" href="settings.html" aria-label="Your profile">
+          <span class="avatar avatar--me" id="myAvatarInitials">--</span>
+        </a>
       </div>
+    </header>
 
-      <div class="adduser__results" id="results" aria-live="polite">
-        <!-- Results injected by adduser.js -->
+    <nav class="conv-list" id="convList" aria-label="Conversation list">
+      <!-- Navigates back to main chats on click -->
+    </nav>
+  </aside>
+
+  <!-- ============ MAIN : RIGHT SIDE ADD USER PANEL ============ -->
+  <main class="chat adduser-panel" id="chat" aria-label="Connect with people panel">
+    <header class="chat__header">
+      <a class="icon-btn back-btn" id="backToApp" href="index.html" aria-label="Back to conversations" style="display: inline-flex !important;">
+        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" aria-hidden="true">
+          <path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </a>
+
+      <div class="chat__identity">
+        <div class="chat__who">
+          <span class="chat__name" style="font-weight: 800; font-size: 1.125rem;">New Message</span>
+        </div>
+      </div>
+    </header>
+
+    <div class="adduser-scroll-container">
+      <div class="adduser-block">
+        <h2 class="adduser-heading">Connect with People</h2>
+
+        <label class="sr-only" for="usernameSearch">Search by name or username</label>
+        <div class="adduser-searchbar">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" aria-hidden="true">
+            <circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/>
+            <line x1="20" y1="20" x2="15.8" y2="15.8" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+          <input
+            type="search"
+            id="usernameSearch"
+            placeholder="example : @VisheshSingh"
+            autocomplete="off"
+            autofocus
+          >
+        </div>
+
+        <div class="adduser__results" id="results" aria-live="polite">
+          <!-- Results injected by adduser.js -->
+        </div>
       </div>
     </div>
   </main>

@@ -77,6 +77,21 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
     if (profile.username) usernameInput.value = profile.username;
     if (profile.email) emailInput.value = profile.email;
     setAvatarImage(profile.photoURL, profile.name || profile.username);
+
+    const myAvatarInitials = document.getElementById("myAvatarInitials");
+    if (myAvatarInitials) {
+      if (profile.photoURL) {
+        myAvatarInitials.textContent = "";
+        myAvatarInitials.style.backgroundImage = `url('${profile.photoURL}')`;
+        myAvatarInitials.style.backgroundSize = "cover";
+        myAvatarInitials.style.backgroundPosition = "center";
+        myAvatarInitials.style.color = "transparent";
+      } else {
+        myAvatarInitials.textContent = getInitials(profile.name || profile.username);
+        myAvatarInitials.style.backgroundImage = "none";
+        myAvatarInitials.style.color = "";
+      }
+    }
   }
 
   try {
