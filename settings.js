@@ -56,17 +56,12 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
   }
 
   function setAvatarImage(url, name) {
-    if (url) {
-      avatarEl.textContent = "";
-      avatarEl.style.backgroundImage = `url('${url}')`;
-      avatarEl.style.backgroundSize = "cover";
-      avatarEl.style.backgroundPosition = "center";
-      avatarEl.style.color = "transparent";
-    } else {
-      avatarEl.textContent = getInitials(name);
-      avatarEl.style.backgroundImage = "none";
-      avatarEl.style.color = "";
-    }
+    const finalUrl = url || "Assets/pfp.jpg";
+    avatarEl.textContent = "";
+    avatarEl.style.backgroundImage = `url('${finalUrl}')`;
+    avatarEl.style.backgroundSize = "cover";
+    avatarEl.style.backgroundPosition = "center";
+    avatarEl.style.color = "transparent";
   }
 
   /* ---------------------------------------------------------------------

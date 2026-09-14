@@ -77,9 +77,8 @@ import { collection, query, where, limit, getDocs } from "https://www.gstatic.co
         item.className = "conv-item";
         item.setAttribute("aria-label", `Start a conversation with ${user.name}, @${user.username}`);
 
-        const avatarHtml = user.photoURL 
-          ? `<span class="avatar avatar--sm" style="background-image: url('${escapeHtml(user.photoURL)}'); background-size: cover; background-position: center; color: transparent;">${getInitials(user.name)}</span>`
-          : `<span class="avatar avatar--sm">${getInitials(user.name)}</span>`;
+        const photo = user.photoURL || "Assets/pfp.jpg";
+        const avatarHtml = `<span class="avatar avatar--sm" style="background-image: url('${escapeHtml(photo)}'); background-size: cover; background-position: center; color: transparent;"></span>`;
 
         item.innerHTML = `
           <span class="avatar-wrap">

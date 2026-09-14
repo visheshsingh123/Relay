@@ -435,6 +435,84 @@ import {
     }
   }
 
+  async function toggleChatPin(chatId) {
+    if (!firebaseUser || !chatId) return;
+
+    const currentlyPinned = Array.isArray(firebaseProfile?.pinnedChats) && firebaseProfile.pinnedChats.includes(chatId);
+
+    try {
+      if (currentlyPinned) {
+        await setDoc(doc(db, "users", firebaseUser.uid), {
+          pinnedChats: arrayRemove(chatId)
+        }, { merge: true });
+        if (firebaseProfile.pinnedChats) {
+          firebaseProfile.pinnedChats = firebaseProfile.pinnedChats.filter(id => id !== chatId);
+        }
+        showCustomAlert("Conversation unpinned.", "Unpinned 📌");
+      } else {
+        await setDoc(doc(db, "users", firebaseUser.uid), {
+          pinnedChats: arrayUnion(chatId)
+        }, { merge: true });
+        if (!firebaseProfile.pinnedChats) firebaseProfile.pinnedChats = [];
+        if (!firebaseProfile.pinnedChats.includes(chatId)) {
+          firebaseProfile.pinnedChats.push(chatId);
+        }
+        showCustomAlert("Conversation pinned to top.", "Pinned 📌");
+      }
+
+      try {
+        localStorage.setItem("relay_user_profile", JSON.stringify(firebaseProfile));
+      } catch (err) { /* ignore */ }
+
+      sortChats();
+      renderConvList(searchInput.value);
+    } catch (err) {
+      console.error("Error toggling pin:", err);
+      showCustomAlert("Failed to update pin status: " + err.message, "Error");
+    }
+  }
+
+  async function toggleBlockUser(targetUser) {
+    if (!targetUser || !firebaseUser) return;
+    const targetUid = targetUser.uid || targetUser.id;
+    if (!targetUid) {
+      showCustomAlert("Failed to identify user ID to block.", "Error");
+      return;
+    }
+
+    const isBlocked = isUserBlocked(targetUid);
+
+    if (isBlocked) {
+      try {
+        await setDoc(doc(db, "users", firebaseUser.uid), {
+          blockedUsers: arrayRemove(targetUid)
+        }, { merge: true });
+        if (!firebaseProfile.blockedUsers) firebaseProfile.blockedUsers = [];
+        firebaseProfile.blockedUsers = firebaseProfile.blockedUsers.filter(id => id !== targetUid);
+        updateBlockedUI(targetUser);
+        showCustomAlert(`Unblocked @${targetUser.username}`, "Success");
+      } catch (err) {
+        showCustomAlert("Failed to unblock user: " + err.message, "Error");
+      }
+    } else {
+      const confirmed = await showCustomConfirm(`Block @${targetUser.username}? You won't be able to send or receive messages in this chat.`, "Block User");
+      if (!confirmed) return;
+      try {
+        await setDoc(doc(db, "users", firebaseUser.uid), {
+          blockedUsers: arrayUnion(targetUid)
+        }, { merge: true });
+        if (!firebaseProfile.blockedUsers) firebaseProfile.blockedUsers = [];
+        if (!firebaseProfile.blockedUsers.includes(targetUid)) {
+          firebaseProfile.blockedUsers.push(targetUid);
+        }
+        updateBlockedUI(targetUser);
+        showCustomAlert(`Blocked @${targetUser.username}`, "User Blocked");
+      } catch (err) {
+        showCustomAlert("Failed to block user: " + err.message, "Error");
+      }
+    }
+  }
+
   function openChatContextMenu(e, conv, otherUser) {
     e.preventDefault();
     closeContextMenu();
@@ -452,6 +530,9 @@ import {
         <button type="button" class="context-menu__item" id="ctxMute">
           <span>${isMuted ? '🔔' : '🔕'}</span> ${isMuted ? 'Unmute Chat' : 'Mute Chat'}
         </button>
+        <button type="button" class="context-menu__item" id="ctxSearch">
+          <span>🔍</span> Search in Chat
+        </button>
         <button type="button" class="context-menu__item" id="ctxSummarize">
           <span>📝</span> Summarize
         </button>
@@ -467,7 +548,7 @@ import {
     activeContextMenu = menu;
 
     const menuWidth = 190;
-    const menuHeight = 200;
+    const menuHeight = 230;
     let posX = e.clientX;
     let posY = e.clientY;
 
@@ -477,40 +558,9 @@ import {
     menu.style.left = `${Math.max(10, posX)}px`;
     menu.style.top = `${Math.max(10, posY)}px`;
 
-    menu.querySelector("#ctxPin").addEventListener("click", async () => {
+    menu.querySelector("#ctxPin").addEventListener("click", () => {
       closeContextMenu();
-      if (!firebaseUser) return;
-
-      const currentlyPinned = Array.isArray(firebaseProfile?.pinnedChats) && firebaseProfile.pinnedChats.includes(conv.id);
-
-      try {
-        if (currentlyPinned) {
-          await setDoc(doc(db, "users", firebaseUser.uid), {
-            pinnedChats: arrayRemove(conv.id)
-          }, { merge: true });
-          if (firebaseProfile.pinnedChats) {
-            firebaseProfile.pinnedChats = firebaseProfile.pinnedChats.filter(id => id !== conv.id);
-          }
-        } else {
-          await setDoc(doc(db, "users", firebaseUser.uid), {
-            pinnedChats: arrayUnion(conv.id)
-          }, { merge: true });
-          if (!firebaseProfile.pinnedChats) firebaseProfile.pinnedChats = [];
-          if (!firebaseProfile.pinnedChats.includes(conv.id)) {
-            firebaseProfile.pinnedChats.push(conv.id);
-          }
-        }
-
-        try {
-          localStorage.setItem("relay_user_profile", JSON.stringify(firebaseProfile));
-        } catch (err) { /* ignore */ }
-
-        sortChats();
-        renderConvList(searchInput.value);
-      } catch (err) {
-        console.error("Error toggling pin:", err);
-        showCustomAlert("Failed to update pin status: " + err.message, "Error");
-      }
+      toggleChatPin(conv.id);
     });
 
     menu.querySelector("#ctxMute").addEventListener("click", () => {
@@ -522,45 +572,28 @@ import {
       }
     });
 
+    menu.querySelector("#ctxSearch").addEventListener("click", () => {
+      closeContextMenu();
+      selectConversation(conv.id, otherUser);
+      setTimeout(() => {
+        if (threadSearchBar) {
+          threadSearchBar.hidden = false;
+          if (threadSearchBtn) threadSearchBtn.setAttribute("aria-expanded", "true");
+          if (threadSearchInput) threadSearchInput.focus();
+          updateThreadSearchResults();
+        }
+      }, 100);
+    });
+
     menu.querySelector("#ctxSummarize").addEventListener("click", () => {
       closeContextMenu();
       selectConversation(conv.id, otherUser);
       setTimeout(() => summarizeAndOpenAI(), 150);
     });
 
-    menu.querySelector("#ctxBlock").addEventListener("click", async () => {
+    menu.querySelector("#ctxBlock").addEventListener("click", () => {
       closeContextMenu();
-      if (!otherUser.uid) return;
-      if (isBlocked) {
-        try {
-          await setDoc(doc(db, "users", firebaseUser.uid), {
-            blockedUsers: arrayRemove(otherUser.uid)
-          }, { merge: true });
-          if (firebaseProfile.blockedUsers) {
-            firebaseProfile.blockedUsers = firebaseProfile.blockedUsers.filter(id => id !== otherUser.uid);
-          }
-          updateBlockedUI(otherUser);
-          showCustomAlert(`Unblocked @${otherUser.username}`, "Success");
-        } catch (err) {
-          showCustomAlert("Failed to unblock user: " + err.message, "Error");
-        }
-      } else {
-        const confirmed = await showCustomConfirm(`Block @${otherUser.username}? You won't be able to send or receive messages in this chat.`, "Block User");
-        if (!confirmed) return;
-        try {
-          await setDoc(doc(db, "users", firebaseUser.uid), {
-            blockedUsers: arrayUnion(otherUser.uid)
-          }, { merge: true });
-          if (!firebaseProfile.blockedUsers) firebaseProfile.blockedUsers = [];
-          if (!firebaseProfile.blockedUsers.includes(otherUser.uid)) {
-            firebaseProfile.blockedUsers.push(otherUser.uid);
-          }
-          updateBlockedUI(otherUser);
-          showCustomAlert(`Blocked @${otherUser.username}`, "User Blocked");
-        } catch (err) {
-          showCustomAlert("Failed to block user: " + err.message, "Error");
-        }
-      }
+      toggleBlockUser(otherUser);
     });
 
     menu.querySelector("#ctxDelete").addEventListener("click", () => {
@@ -1290,17 +1323,12 @@ import {
 
   function renderChatHeader(otherUser) {
     chatNameEl.textContent = otherUser.name;
-    if (otherUser && otherUser.photoURL) {
-      chatAvatarEl.textContent = "";
-      chatAvatarEl.style.backgroundImage = `url('${otherUser.photoURL}')`;
-      chatAvatarEl.style.backgroundSize = "cover";
-      chatAvatarEl.style.backgroundPosition = "center";
-      chatAvatarEl.style.color = "transparent";
-    } else {
-      chatAvatarEl.textContent = getInitials(otherUser.name);
-      chatAvatarEl.style.backgroundImage = "none";
-      chatAvatarEl.style.color = "";
-    }
+    const photo = (otherUser && otherUser.photoURL) || DEFAULT_AVATAR;
+    chatAvatarEl.textContent = "";
+    chatAvatarEl.style.backgroundImage = `url('${photo}')`;
+    chatAvatarEl.style.backgroundSize = "cover";
+    chatAvatarEl.style.backgroundPosition = "center";
+    chatAvatarEl.style.color = "transparent";
     chatStatusEl.innerHTML = `<span class="chat__handle">@${escapeHtml(otherUser.username)}</span>`;
   }
   
@@ -1548,7 +1576,7 @@ import {
   }
 
   /* ---------------------------------------------------------------------
-     Chat header menu: open/close + delete chat
+     Chat header menu: open/close + all contact actions (Pin, Mute, Search, AI Summarize, Block, Delete)
      --------------------------------------------------------------------- */
   function closeChatMenu() {
     chatMenuDropdown.hidden = true;
@@ -1556,6 +1584,26 @@ import {
   }
 
   function openChatMenu() {
+    if (!activeChatId) return;
+
+    const isPinned = Array.isArray(firebaseProfile?.pinnedChats) && firebaseProfile.pinnedChats.includes(activeChatId);
+    const isMuted = isChatMuted(activeChatId);
+    const targetUid = activeChatUser?.uid || activeChatUser?.id;
+    const isBlocked = targetUid ? isUserBlocked(targetUid) : false;
+
+    if (pinChatMenuBtnLabel) {
+      pinChatMenuBtnLabel.textContent = isPinned ? "Unpin conversation" : "Pin conversation";
+    }
+    if (muteChatMenuBtnLabel) {
+      muteChatMenuBtnLabel.textContent = isMuted ? "Unmute notifications" : "Mute notifications";
+    }
+    if (muteChatMenuBtnIcon) {
+      muteChatMenuBtnIcon.textContent = isMuted ? "🔔" : "🔕";
+    }
+    if (blockUserBtnLabel) {
+      blockUserBtnLabel.textContent = isBlocked ? "Unblock user" : "Block user";
+    }
+
     chatMenuDropdown.hidden = false;
     chatMenuBtn.setAttribute("aria-expanded", "true");
   }
@@ -1572,6 +1620,58 @@ import {
 
   document.addEventListener("keydown", (e) => {
     if (e.key === "Escape") closeChatMenu();
+  });
+
+  if (pinChatMenuBtn) {
+    pinChatMenuBtn.addEventListener("click", () => {
+      closeChatMenu();
+      if (activeChatId) toggleChatPin(activeChatId);
+    });
+  }
+
+  if (muteChatMenuBtn) {
+    muteChatMenuBtn.addEventListener("click", () => {
+      closeChatMenu();
+      if (!activeChatId) return;
+      if (isChatMuted(activeChatId)) {
+        unmuteChat(activeChatId);
+      } else {
+        openMuteModal(activeChatId, activeChatUser?.username || activeChatUser?.name);
+      }
+    });
+  }
+
+  if (searchChatMenuBtn) {
+    searchChatMenuBtn.addEventListener("click", () => {
+      closeChatMenu();
+      if (threadSearchBar) {
+        threadSearchBar.hidden = false;
+        if (threadSearchBtn) threadSearchBtn.setAttribute("aria-expanded", "true");
+        if (threadSearchInput) threadSearchInput.focus();
+        updateThreadSearchResults();
+      }
+    });
+  }
+
+  if (summarizeChatMenuBtn) {
+    summarizeChatMenuBtn.addEventListener("click", () => {
+      closeChatMenu();
+      summarizeAndOpenAI();
+    });
+  }
+
+  blockUserBtn.addEventListener("click", async () => {
+    closeChatMenu();
+    if (activeChatUser) {
+      await toggleBlockUser(activeChatUser);
+    }
+  });
+
+  deleteChatBtn.addEventListener("click", async () => {
+    closeChatMenu();
+    if (activeChatId) {
+      await deleteChat(activeChatId);
+    }
   });
 
   async function deleteChat(chatId) {
@@ -1607,58 +1707,6 @@ import {
       showCustomAlert("Failed to delete messages: " + err.message, "Error");
     }
   }
-
-  blockUserBtn.addEventListener("click", async () => {
-    closeChatMenu();
-    if (!activeChatUser || !firebaseUser) return;
-
-    const targetUid = activeChatUser.uid || activeChatUser.id;
-    if (!targetUid) {
-      showCustomAlert("Failed to identify user ID to block.", "Error");
-      return;
-    }
-
-    const isBlocked = isUserBlocked(targetUid);
-
-    if (isBlocked) {
-      try {
-        await setDoc(doc(db, "users", firebaseUser.uid), {
-          blockedUsers: arrayRemove(targetUid)
-        }, { merge: true });
-        if (!firebaseProfile.blockedUsers) firebaseProfile.blockedUsers = [];
-        firebaseProfile.blockedUsers = firebaseProfile.blockedUsers.filter(id => id !== targetUid);
-        updateBlockedUI(activeChatUser);
-      } catch (err) {
-        console.error("Error unblocking user:", err);
-        showCustomAlert("Failed to unblock user: " + err.message, "Error");
-      }
-    } else {
-      const confirmed = await showCustomConfirm(`Block @${activeChatUser.username}? You won't be able to send or receive messages in this chat.`, "Block User");
-      if (!confirmed) return;
-
-      try {
-        await setDoc(doc(db, "users", firebaseUser.uid), {
-          blockedUsers: arrayUnion(targetUid)
-        }, { merge: true });
-
-        if (!firebaseProfile.blockedUsers) firebaseProfile.blockedUsers = [];
-        if (!firebaseProfile.blockedUsers.includes(targetUid)) {
-          firebaseProfile.blockedUsers.push(targetUid);
-        }
-        updateBlockedUI(activeChatUser);
-      } catch (err) {
-        console.error("Error blocking user:", err);
-        showCustomAlert("Failed to block user: " + err.message, "Error");
-      }
-    }
-  });
-
-  deleteChatBtn.addEventListener("click", async () => {
-    closeChatMenu();
-    if (activeChatId) {
-      await deleteChat(activeChatId);
-    }
-  });
 
   if (acceptRequestBtn) {
     acceptRequestBtn.addEventListener("click", async () => {
@@ -2495,19 +2543,13 @@ Do NOT use robotic headers like "Mood & Tone:" or numbered bullet points. Keep i
     firebaseProfile = profile;
     updateWelcomeTitles();
 
-    const photo = profile.photoURL;
+    const photo = profile.photoURL || DEFAULT_AVATAR;
     if (myAvatarInitials) {
-      if (photo) {
-        myAvatarInitials.textContent = "";
-        myAvatarInitials.style.backgroundImage = `url('${photo}')`;
-        myAvatarInitials.style.backgroundSize = "cover";
-        myAvatarInitials.style.backgroundPosition = "center";
-        myAvatarInitials.style.color = "transparent";
-      } else {
-        myAvatarInitials.textContent = getInitials(profile.name);
-        myAvatarInitials.style.backgroundImage = "none";
-        myAvatarInitials.style.color = "";
-      }
+      myAvatarInitials.textContent = "";
+      myAvatarInitials.style.backgroundImage = `url('${photo}')`;
+      myAvatarInitials.style.backgroundSize = "cover";
+      myAvatarInitials.style.backgroundPosition = "center";
+      myAvatarInitials.style.color = "transparent";
     }
     if (profile.username && usernameModal) {
       usernameModal.setAttribute('hidden', 'true');
