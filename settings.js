@@ -98,20 +98,57 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
     if (!fullNameInput.value && user.displayName) fullNameInput.value = user.displayName;
     if (!emailInput.value && user.email) emailInput.value = user.email;
 
+    currentUser = user;
+
+    let profileData = {};
     try {
       const docSnap = await getDoc(doc(db, "users", user.uid));
       if (docSnap.exists()) {
-        const data = docSnap.data();
-        applyProfileToForm(data);
+        profileData = docSnap.data();
+        applyProfileToForm(profileData);
         try {
-          localStorage.setItem("relay_user_profile", JSON.stringify(data));
+          localStorage.setItem("relay_user_profile", JSON.stringify(profileData));
         } catch (e) { /* ignore */ }
       }
     } catch (err) {
       console.error("Error fetching profile:", err);
     }
 
-    // Hydrate push notification setting
+    // ── Preferences ──────────────────────────────────────────────────────
+    const prefs = profileData.preferences || {};
+    const readReceiptsInput  = document.getElementById("readReceipts");
+    const onlineStatusInput  = document.getElementById("onlineStatus");
+
+    // Load saved values (default true if never set)
+    if (readReceiptsInput)  readReceiptsInput.checked  = prefs.readReceipts  !== false;
+    if (onlineStatusInput)  onlineStatusInput.checked  = prefs.onlineStatus  !== false;
+
+    async function savePref(key, value) {
+      try {
+        await setDoc(doc(db, "users", user.uid), { preferences: { [key]: value } }, { merge: true });
+        // Update local cache
+        const cached = JSON.parse(localStorage.getItem("relay_user_profile") || "{}");
+        cached.preferences = { ...(cached.preferences || {}), [key]: value };
+        localStorage.setItem("relay_user_profile", JSON.stringify(cached));
+      } catch (e) { console.error("Failed to save preference:", e); }
+    }
+
+    if (readReceiptsInput) {
+      readReceiptsInput.addEventListener("change", () => savePref("readReceipts", readReceiptsInput.checked));
+    }
+    if (onlineStatusInput) {
+      onlineStatusInput.addEventListener("change", async () => {
+        await savePref("onlineStatus", onlineStatusInput.checked);
+        // If turning off, clear presence in Firestore immediately
+        if (!onlineStatusInput.checked) {
+          try {
+            await setDoc(doc(db, "users", user.uid), { online: false, lastSeen: new Date().toISOString() }, { merge: true });
+          } catch (e) { /* ignore */ }
+        }
+      });
+    }
+
+    // ── Push Notifications ────────────────────────────────────────────────
     const pushNotificationsInput = document.getElementById("pushNotifications");
     const pushNotificationsLabel = document.getElementById("pushNotificationsLabel");
     if (pushNotificationsInput) {

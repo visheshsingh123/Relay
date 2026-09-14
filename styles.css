@@ -1143,8 +1143,9 @@ input:focus-visible,
 .adduser-main {
   flex: 1;
   display: flex;
+  align-items: center;
   justify-content: center;
-  padding: 12vh var(--sp-6) var(--sp-6);
+  padding: var(--sp-6);
   background:
     radial-gradient(ellipse 900px 650px at 25% 0%, rgba(110, 86, 207, 0.30), transparent 60%),
     radial-gradient(ellipse 700px 550px at 90% 25%, rgba(156, 129, 245, 0.14), transparent 55%),
@@ -1210,7 +1211,6 @@ input:focus-visible,
 }
 
 @media (max-width: 600px) {
-  .adduser-main { padding-top: 8vh; }
   .adduser-searchbar { height: 56px; }
 }
 

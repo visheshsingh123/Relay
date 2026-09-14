@@ -57,6 +57,7 @@ import {
   const onboardingUsernameError = document.getElementById("onboardingUsernameError");
   const onboardingUsernameSubmit = document.getElementById("onboardingUsernameSubmit");
   const myProfileBtn = document.getElementById("myProfileBtn");
+  const myAvatarInitials = document.getElementById("myAvatarInitials");
   const sidebarEmpty = document.getElementById("sidebarEmpty");
   const chatEmpty = document.getElementById("chatEmpty");
   const sidebarSkeleton = document.getElementById("sidebarSkeleton");
@@ -210,14 +211,28 @@ import {
           timeStr = date.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
       }
 
-      const checks = isMe
-          ? `<span class="checkmarks is-read" aria-hidden="true">
+      // Show read receipt ticks only if the other user has read receipts enabled
+      const recipientHasReceiptsOn = activeChatUser?.preferences?.readReceipts !== false;
+      let checks = "";
+      if (isMe) {
+        if (msg.read && recipientHasReceiptsOn) {
+          // Double tick (read)
+          checks = `<span class="checkmarks is-read" aria-label="Read" aria-hidden="true">
                <svg viewBox="0 0 16 16" width="14" height="14" fill="none">
                  <path d="M1 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
                  <path d="M6 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
                </svg>
-             </span>`
-          : "";
+             </span>`;
+        } else {
+          // Single tick (sent/delivered)
+          checks = `<span class="checkmarks" aria-label="Sent" aria-hidden="true">
+               <svg viewBox="0 0 16 16" width="14" height="14" fill="none">
+                 <path d="M2 8.5l3 3 6-7" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/>
+               </svg>
+             </span>`;
+        }
+      }
+
 
       row.innerHTML = `
         <div class="bubble">
@@ -353,6 +368,7 @@ import {
     messagesUnsubscribe = onSnapshot(q, (snapshot) => {
         currentMessages = snapshot.docs.map(doc => ({id: doc.id, ...doc.data()}));
         renderThread();
+        markMessagesRead();
     });
     
     // Subscribe to the other user's profile changes, online status & block status
@@ -360,21 +376,35 @@ import {
         if (!snap.exists()) return;
         const data = snap.data();
         
-        // Sync latest profile data (like photoURL & blockedUsers)
+        // Sync latest profile data (like photoURL, blockedUsers, preferences)
         otherUser.photoURL = data.photoURL || null;
         otherUser.name = data.name || otherUser.name;
         otherUser.blockedUsers = data.blockedUsers || [];
+        otherUser.preferences = data.preferences || {};
 
         renderChatHeader(otherUser);
         renderConvList(searchInput.value);
         updateBlockedUI(otherUser);
 
-        if (data.online) {
+        // Only show online status if the other user has it enabled
+        if (data.preferences?.onlineStatus === false) {
+            updateChatStatus("", false); // hide status
+        } else if (data.online) {
             updateChatStatus("Online", true);
         } else {
             updateChatStatus(formatLastSeen(data.lastSeen), false);
         }
     });
+
+    // Mark messages as read when this chat is open (if MY read receipts are on)
+    const markMessagesRead = () => {
+      if (firebaseProfile?.preferences?.readReceipts === false) return;
+      if (activeChatId !== id) return;
+      const batch = currentMessages.filter(m => !m.read && m.senderId !== firebaseUser.uid);
+      batch.forEach(m => {
+        updateDoc(doc(db, "chats", id, "messages", m.id), { read: true }).catch(() => {});
+      });
+    };
     
     // Subscribe to chat doc for typing indicator & request status updates
     chatDocUnsubscribe = onSnapshot(doc(db, "chats", id), (snap) => {
@@ -793,28 +823,36 @@ import {
     }
   }
 
+  function updateWelcomeTitles() {
+    const firstName = firebaseProfile?.name?.split(" ")[0] || "there";
+    if (sidebarEmptyTitle) sidebarEmptyTitle.textContent = `Welcome, ${firstName}!`;
+    if (chatEmptyTitle) chatEmptyTitle.textContent = `Welcome, ${firstName}!`;
+  }
+
   function hydrateProfileUI(profile) {
     if (!profile) return;
     firebaseProfile = profile;
     updateWelcomeTitles();
 
     const photo = profile.photoURL;
-    if (photo) {
-      myAvatarInitials.textContent = "";
-      myAvatarInitials.style.backgroundImage = `url('${photo}')`;
-      myAvatarInitials.style.backgroundSize = "cover";
-      myAvatarInitials.style.backgroundPosition = "center";
-      myAvatarInitials.style.color = "transparent";
-    } else {
-      myAvatarInitials.textContent = getInitials(profile.name);
-      myAvatarInitials.style.backgroundImage = "none";
-      myAvatarInitials.style.color = "";
+    if (myAvatarInitials) {
+      if (photo) {
+        myAvatarInitials.textContent = "";
+        myAvatarInitials.style.backgroundImage = `url('${photo}')`;
+        myAvatarInitials.style.backgroundSize = "cover";
+        myAvatarInitials.style.backgroundPosition = "center";
+        myAvatarInitials.style.color = "transparent";
+      } else {
+        myAvatarInitials.textContent = getInitials(profile.name);
+        myAvatarInitials.style.backgroundImage = "none";
+        myAvatarInitials.style.color = "";
+      }
     }
     if (profile.username && usernameModal) {
       usernameModal.setAttribute('hidden', 'true');
       localStorage.setItem("relay_username", profile.username);
     }
-    if (profile.name && profile.username) {
+    if (profile.name && profile.username && myProfileBtn) {
       myProfileBtn.setAttribute("aria-label", `Your profile, ${profile.name}, @${profile.username}`);
       myProfileBtn.title = `@${profile.username}`;
     }
@@ -867,10 +905,12 @@ import {
       const docSnap = await getDoc(doc(db, "users", user.uid));
       if (docSnap.exists()) {
         const data = docSnap.data();
-        firebaseProfile = data;
+        // Merge Firebase Auth photoURL as fallback if Firestore doc doesn't have one
+        firebaseProfile = { ...data, photoURL: data.photoURL || user.photoURL || null };
+        console.log("[Relay] Profile loaded:", { name: firebaseProfile.name, hasPhoto: !!firebaseProfile.photoURL, photoStart: firebaseProfile.photoURL?.slice(0,40) });
         try {
           localStorage.setItem("relay_user_profile", JSON.stringify(firebaseProfile));
-        } catch (e) { /* ignore */ }
+        } catch (e) { console.warn("[Relay] localStorage quota exceeded, can't cache profile (photo too large)"); }
         hydrateProfileUI(firebaseProfile);
         
         if (!firebaseProfile.username) {
@@ -897,16 +937,18 @@ import {
   });
   
   function initializeApp() {
-      // Set user as online
-      setDoc(doc(db, "users", firebaseUser.uid), { 
-        online: true, 
-        lastSeen: serverTimestamp() 
-      }, { merge: true });
+      const onlineEnabled = firebaseProfile?.preferences?.onlineStatus !== false;
+
+      // Set user as online (only if preference is on)
+      if (onlineEnabled) {
+        setDoc(doc(db, "users", firebaseUser.uid), { 
+          online: true, 
+          lastSeen: serverTimestamp() 
+        }, { merge: true });
+      }
       
       // Set offline when leaving the page
       window.addEventListener("beforeunload", () => {
-        navigator.sendBeacon || null; // fallback check
-        // Use a sync-safe approach
         const userRef = doc(db, "users", firebaseUser.uid);
         setDoc(userRef, { online: false, lastSeen: serverTimestamp() }, { merge: true });
       });
@@ -915,9 +957,10 @@ import {
       document.addEventListener("visibilitychange", () => {
         if (!firebaseUser) return;
         const userRef = doc(db, "users", firebaseUser.uid);
+        const stillEnabled = firebaseProfile?.preferences?.onlineStatus !== false;
         if (document.visibilityState === "hidden") {
           setDoc(userRef, { online: false, lastSeen: serverTimestamp() }, { merge: true });
-        } else {
+        } else if (stillEnabled) {
           setDoc(userRef, { online: true, lastSeen: serverTimestamp() }, { merge: true });
         }
       });
