@@ -1595,6 +1595,8 @@ import {
     const query = filter.trim().toLowerCase();
     convListEl.innerHTML = "";
 
+    const currentUid = firebaseUser?.uid || firebaseProfile?.uid || null;
+
     if (sidebarEmpty) {
       sidebarEmpty.hidden = chats.length > 0;
     }
@@ -1607,14 +1609,32 @@ import {
         if (c.isGroup) {
           return (c.groupName || "").toLowerCase().includes(query);
         }
-        const otherUser = c.users && c.otherUid ? c.users[c.otherUid] : null;
-        if (!otherUser) return false;
-        return otherUser.name.toLowerCase().includes(query) || otherUser.username.toLowerCase().includes(q);
+        let otherUser = c.users && c.otherUid ? c.users[c.otherUid] : null;
+        if (!otherUser && c.otherUid) {
+          try {
+            const rawCache = localStorage.getItem("relay_user_cache_" + c.otherUid);
+            if (rawCache) otherUser = JSON.parse(rawCache);
+          } catch (_) {}
+        }
+        if (!otherUser) return true;
+        const uName = otherUser.name || "";
+        const uHandle = otherUser.username || "";
+        return uName.toLowerCase().includes(query) || uHandle.toLowerCase().includes(q);
       })
       .forEach((conv) => {
         const isGroup = !!conv.isGroup;
-        const otherUser = isGroup ? null : { uid: conv.otherUid, ...conv.users[conv.otherUid] };
-        const unreadCount = (conv.unreadCounts && conv.unreadCounts[firebaseUser.uid]) || 0;
+        let otherUser = isGroup ? null : (conv.users && conv.otherUid ? { uid: conv.otherUid, ...conv.users[conv.otherUid] } : null);
+        if (!isGroup && !otherUser && conv.otherUid) {
+          try {
+            const rawCache = localStorage.getItem("relay_user_cache_" + conv.otherUid);
+            if (rawCache) otherUser = { uid: conv.otherUid, ...JSON.parse(rawCache) };
+          } catch (_) {}
+        }
+        if (!isGroup && !otherUser) {
+          otherUser = { uid: conv.otherUid || "user", name: "Conversation", username: "user" };
+        }
+
+        const unreadCount = (currentUid && conv.unreadCounts && conv.unreadCounts[currentUid]) || 0;
         const isPinned = Array.isArray(firebaseProfile?.pinnedChats) && firebaseProfile.pinnedChats.includes(conv.id);
         const isMuted = isChatMuted(conv.id);
 
@@ -1642,10 +1662,10 @@ import {
         }
 
         let requestTagHtml = "";
-        if (!isGroup && conv.status === "pending") {
-          if (conv.requestedTo === firebaseUser.uid) {
+        if (!isGroup && conv.status === "pending" && currentUid) {
+          if (conv.requestedTo === currentUid) {
             requestTagHtml = `<span class="request-pill">Request</span>`;
-          } else if (conv.requestedBy === firebaseUser.uid) {
+          } else if (conv.requestedBy === currentUid) {
             requestTagHtml = `<span class="request-pill request-pill--muted">Pending</span>`;
           }
         }

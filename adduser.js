@@ -59,45 +59,79 @@ import { collection, query, where, limit, getDocs } from "https://www.gstatic.co
     return item;
   }
 
-  /* ---------------------------------------------------------------------
-     Load Suggested People (Recommendations)
-     --------------------------------------------------------------------- */
-  async function loadRecommendations() {
+  const SUGGESTED_CACHE_KEY = "relay_suggested_users_cache";
+
+  function renderRecList(users) {
     resultsEl.innerHTML = `
       <div class="adduser-section">
         <h3 class="adduser-section__title">Suggested for you</h3>
-        <div class="adduser-section__list" id="recList">
-          <p class="adduser__empty">Loading suggestions...</p>
-        </div>
+        <div class="adduser-section__list" id="recList"></div>
       </div>
     `;
-
     const recList = document.getElementById("recList");
+    users.forEach((u) => recList.appendChild(createResultItem(u)));
+  }
 
+  /* ---------------------------------------------------------------------
+     Load Suggested People (Recommendations - 0ms Cache + Firestore Sync)
+     --------------------------------------------------------------------- */
+  async function loadRecommendations() {
+    let hasRenderedCache = false;
+
+    // 1. Try to load from localStorage cache first for 0ms instant display!
+    try {
+      const cached = localStorage.getItem(SUGGESTED_CACHE_KEY);
+      if (cached) {
+        const users = JSON.parse(cached);
+        if (Array.isArray(users) && users.length > 0) {
+          renderRecList(users);
+          hasRenderedCache = true;
+        }
+      }
+    } catch (_) {}
+
+    // Show loading text if cache wasn't available
+    if (!hasRenderedCache) {
+      resultsEl.innerHTML = `
+        <div class="adduser-section">
+          <h3 class="adduser-section__title">Suggested for you</h3>
+          <div class="adduser-section__list" id="recList">
+            <p class="adduser__empty">Loading suggestions...</p>
+          </div>
+        </div>
+      `;
+    }
+
+    // 2. Fetch fresh suggestions from Firestore in background & update cache
     try {
       const usersRef = collection(db, "users");
-      const qRef = query(usersRef, limit(8));
+      const qRef = query(usersRef, limit(10));
       const snapshot = await getDocs(qRef);
 
-      recList.innerHTML = "";
-
-      let count = 0;
+      const freshUsers = [];
       snapshot.forEach((doc) => {
         const user = doc.data();
         if (auth.currentUser && user.uid === auth.currentUser.uid) {
           return;
         }
-
-        count++;
-        recList.appendChild(createResultItem(user));
+        freshUsers.push(user);
       });
 
-      if (count === 0) {
-        recList.innerHTML = '<p class="adduser__empty">No suggestions available right now.</p>';
+      if (freshUsers.length > 0) {
+        try {
+          localStorage.setItem(SUGGESTED_CACHE_KEY, JSON.stringify(freshUsers));
+        } catch (_) {}
+        renderRecList(freshUsers);
+      } else if (!hasRenderedCache) {
+        const recList = document.getElementById("recList");
+        if (recList) recList.innerHTML = '<p class="adduser__empty">No suggestions available right now.</p>';
       }
     } catch (err) {
-      console.warn("Could not load recommendations from Firestore:", err);
-      recList.innerHTML = '<p class="adduser__empty">Type a username or name above to search.</p>';
+      console.warn("Could not refresh recommendations from Firestore:", err);
+      if (!hasRenderedCache) {
+        const recList = document.getElementById("recList");
+        if (recList) recList.innerHTML = '<p class="adduser__empty">Type a username or name above to search.</p>';
+      }
     }
   }
 
