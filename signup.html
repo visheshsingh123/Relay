@@ -21,115 +21,137 @@
 
 <main class="auth-main">
   <div class="auth-card">
-    <div class="auth-card__accent" aria-hidden="true"></div>
+    <div class="auth-card__info">
+      <div class="auth-info__badge">
+        <span class="auth-badge-dot"></span>
+        <span>Free Sign Up</span>
+      </div>
+      <h3 class="auth-info__title">Join Relay today.</h3>
+      <p class="auth-info__subtitle">Create an account in less than a minute. No clutter, no fee.</p>
+
+      <ul class="auth-info__features">
+        <li>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Free on Web, Android & PWA</span>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Search & chat with friends by @username</span>
+        </li>
+        <li>
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          <span>Clean 1-on-1 private interface</span>
+        </li>
+      </ul>
+    </div>
 
     <div class="auth-card__content">
       <h2 class="auth-title">Create your account</h2>
       <p class="auth-subtitle">It takes less than a minute to get started.</p>
 
       <form class="auth-form" id="signupForm" novalidate>
+        <div class="field-grid">
+          <div class="field">
+            <label class="field__label" for="name">Full name</label>
+            <input
+              class="field__input"
+              type="text"
+              id="name"
+              name="name"
+              placeholder="Vivian Serrano"
+              autocomplete="name"
+              required
+            >
+            <p class="field__error" id="nameError" hidden>Enter your full name.</p>
+          </div>
 
-        <div class="field">
-          <label class="field__label" for="name">Full name</label>
-          <input
-            class="field__input"
-            type="text"
-            id="name"
-            name="name"
-            placeholder="Vivian Serrano"
-            autocomplete="name"
-            required
-          >
-          <p class="field__error" id="nameError" hidden>Enter your full name.</p>
+          <div class="field">
+            <label class="field__label" for="email">Email</label>
+            <input
+              class="field__input"
+              type="email"
+              id="email"
+              name="email"
+              placeholder="you@example.com"
+              autocomplete="email"
+              required
+            >
+            <p class="field__error" id="emailError" hidden>Enter a valid email address.</p>
+          </div>
         </div>
 
-        <div class="field">
-          <label class="field__label" for="email">Email</label>
-          <input
-            class="field__input"
-            type="email"
-            id="email"
-            name="email"
-            placeholder="you@example.com"
-            autocomplete="email"
-            required
-          >
-          <p class="field__error" id="emailError" hidden>Enter a valid email address.</p>
-        </div>
+        <div class="field-grid">
+          <div class="field">
+            <label class="field__label" for="password">Password</label>
+            <div class="field__input-wrap">
+              <input
+                class="field__input"
+                type="password"
+                id="password"
+                name="password"
+                placeholder="Create password"
+                autocomplete="new-password"
+                required
+                minlength="8"
+              >
+              <button type="button" class="field__reveal" id="togglePassword" aria-label="Show password" aria-pressed="false">
+                <svg viewBox="0 0 24 24" width="19" height="19" fill="none" aria-hidden="true">
+                  <path class="eye-open" d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
+                  <circle class="eye-open" cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.7"/>
+                  <path class="eye-closed" d="M3.5 3.5l17 17" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" style="display:none"/>
+                </svg>
+              </button>
+            </div>
+            <div class="strength-meter" id="strengthMeter" aria-hidden="true">
+              <span class="strength-meter__bar" data-bar></span>
+              <span class="strength-meter__bar" data-bar></span>
+              <span class="strength-meter__bar" data-bar></span>
+            </div>
+            <p class="field__hint" id="strengthLabel">8+ chars, letters & numbers.</p>
+            <p class="field__error" id="passwordError" hidden>Password must be at least 8 characters.</p>
+          </div>
 
-        <div class="field">
-          <label class="field__label" for="password">Password</label>
-          <div class="field__input-wrap">
+          <div class="field">
+            <label class="field__label" for="confirmPassword">Confirm password</label>
             <input
               class="field__input"
               type="password"
-              id="password"
-              name="password"
-              placeholder="Create a password"
+              id="confirmPassword"
+              name="confirmPassword"
+              placeholder="Re-enter password"
               autocomplete="new-password"
               required
-              minlength="8"
             >
-            <button type="button" class="field__reveal" id="togglePassword" aria-label="Show password" aria-pressed="false">
-              <svg viewBox="0 0 24 24" width="19" height="19" fill="none" aria-hidden="true">
-                <path class="eye-open" d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z" stroke="currentColor" stroke-width="1.7" stroke-linejoin="round"/>
-                <circle class="eye-open" cx="12" cy="12" r="3" stroke="currentColor" stroke-width="1.7"/>
-                <path class="eye-closed" d="M3.5 3.5l17 17" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" style="display:none"/>
-              </svg>
-            </button>
+            <p class="field__error" id="confirmError" hidden>Passwords don't match.</p>
           </div>
-          <div class="strength-meter" id="strengthMeter" aria-hidden="true">
-            <span class="strength-meter__bar" data-bar></span>
-            <span class="strength-meter__bar" data-bar></span>
-            <span class="strength-meter__bar" data-bar></span>
-          </div>
-          <p class="field__hint" id="strengthLabel">Use 8+ characters with a mix of letters and numbers.</p>
-          <p class="field__error" id="passwordError" hidden>Password must be at least 8 characters.</p>
-        </div>
-
-        <div class="field">
-          <label class="field__label" for="confirmPassword">Confirm password</label>
-          <input
-            class="field__input"
-            type="password"
-            id="confirmPassword"
-            name="confirmPassword"
-            placeholder="Re-enter your password"
-            autocomplete="new-password"
-            required
-          >
-          <p class="field__error" id="confirmError" hidden>Passwords don't match.</p>
         </div>
 
         <div class="field field--row">
           <label class="checkbox">
             <input type="checkbox" id="terms" name="terms" required>
             <span class="checkbox__box" aria-hidden="true"></span>
-            <span class="checkbox__label">I agree to the Terms of Service and Privacy Policy</span>
+            <span class="checkbox__label">I agree to the Terms of Service & Privacy Policy</span>
           </label>
         </div>
         <p class="field__error" id="termsError" hidden>You need to agree before continuing.</p>
 
         <p class="form-error" id="formError" role="alert" hidden></p>
 
-        <button type="submit" class="auth-submit" id="signupSubmit">
-          <span class="auth-submit__label">Create account</span>
-        </button>
+        <div class="auth-actions">
+          <button type="submit" class="auth-submit" id="signupSubmit">
+            <span class="auth-submit__label">Create account</span>
+          </button>
+          <button type="button" class="auth-social" id="googleSignupBtn">
+            <svg class="auth-social__icon" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
+              <path d="M19.6 10.23c0-.68-.06-1.33-.17-1.95H10v3.69h5.38a4.6 4.6 0 0 1-2 3.02v2.5h3.23c1.89-1.74 2.99-4.3 2.99-7.26Z" fill="#4285F4"/>
+              <path d="M10 20c2.7 0 4.96-.89 6.61-2.42l-3.23-2.5c-.9.6-2.04.96-3.38.96-2.6 0-4.8-1.76-5.59-4.12H1.07v2.59A10 10 0 0 0 10 20Z" fill="#34A853"/>
+              <path d="M4.41 11.92a6 6 0 0 1 0-3.84V5.49H1.07a10 10 0 0 0 0 9.02l3.34-2.59Z" fill="#FBBC05"/>
+              <path d="M10 3.96c1.47 0 2.79.5 3.83 1.49l2.87-2.87A9.6 9.6 0 0 0 10 0 10 10 0 0 0 1.07 5.49l3.34 2.59C5.2 5.72 7.4 3.96 10 3.96Z" fill="#EA4335"/>
+            </svg>
+            <span class="auth-social__label">Google</span>
+          </button>
+        </div>
       </form>
-
-      <div class="auth-divider" role="separator">
-        <span>or</span>
-      </div>
-
-      <button type="button" class="auth-social" id="googleSignupBtn">
-        <svg class="auth-social__icon" viewBox="0 0 20 20" width="18" height="18" aria-hidden="true">
-          <path d="M19.6 10.23c0-.68-.06-1.33-.17-1.95H10v3.69h5.38a4.6 4.6 0 0 1-2 3.02v2.5h3.23c1.89-1.74 2.99-4.3 2.99-7.26Z" fill="#4285F4"/>
-          <path d="M10 20c2.7 0 4.96-.89 6.61-2.42l-3.23-2.5c-.9.6-2.04.96-3.38.96-2.6 0-4.8-1.76-5.59-4.12H1.07v2.59A10 10 0 0 0 10 20Z" fill="#34A853"/>
-          <path d="M4.41 11.92a6 6 0 0 1 0-3.84V5.49H1.07a10 10 0 0 0 0 9.02l3.34-2.59Z" fill="#FBBC05"/>
-          <path d="M10 3.96c1.47 0 2.79.5 3.83 1.49l2.87-2.87A9.6 9.6 0 0 0 10 0 10 10 0 0 0 1.07 5.49l3.34 2.59C5.2 5.72 7.4 3.96 10 3.96Z" fill="#EA4335"/>
-        </svg>
-        <span class="auth-social__label">Continue with Google</span>
-      </button>
 
       <p class="auth-switch">
         Already have an account?

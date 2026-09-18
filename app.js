@@ -3379,17 +3379,21 @@ Do NOT use robotic headers like "Mood & Tone:" or numbered bullet points. Keep i
       initializeApp();
     }
 
-    // Fetch latest profile from Firestore
-    try {
-      const docSnap = await getDoc(doc(db, "users", user.uid));
+    // Listen to real-time updates for logged-in user profile
+    onSnapshot(doc(db, "users", user.uid), (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data();
-        // Merge Firebase Auth photoURL as fallback if Firestore doc doesn't have one
-        firebaseProfile = { ...data, photoURL: data.photoURL || user.photoURL || null };
-        console.log("[Relay] Profile loaded:", { name: firebaseProfile.name, hasPhoto: !!firebaseProfile.photoURL, photoStart: firebaseProfile.photoURL?.slice(0,40) });
+        firebaseProfile = { ...data, photoURL: data.photoURL || user.photoURL || null, uid: user.uid };
         try {
           localStorage.setItem("relay_user_profile", JSON.stringify(firebaseProfile));
-        } catch (e) { console.warn("[Relay] localStorage quota exceeded, can't cache profile (photo too large)"); }
+          localStorage.setItem("relay_user_cache_" + user.uid, JSON.stringify(firebaseProfile));
+          if (firebaseProfile.username) {
+            localStorage.setItem("relay_user_cache_" + firebaseProfile.username.toLowerCase(), JSON.stringify(firebaseProfile));
+          }
+          localStorage.setItem("relay_last_viewed_user", JSON.stringify(firebaseProfile));
+        } catch (e) {
+          console.warn("[Relay] localStorage quota exceeded, can't cache profile");
+        }
         hydrateProfileUI(firebaseProfile);
         
         if (!firebaseProfile.username) {
@@ -3404,18 +3408,22 @@ Do NOT use robotic headers like "Mood & Tone:" or numbered bullet points. Keep i
           usernameModal.removeAttribute('hidden');
         }
       }
-    } catch (err) {
-      console.error("Error fetching profile:", err);
+    }, (err) => {
+      console.error("Error watching user profile:", err);
       if (!knownUsername) {
         if (err.code === "permission-denied") {
           showCustomAlert("Firestore Permission Denied. Please ensure your Firestore database is created and set to Test Mode rules.", "Permission Error");
         }
         usernameModal.removeAttribute('hidden');
       }
-    }
+    });
   });
   
+  let isAppInitialized = false;
+
   function initializeApp() {
+      if (isAppInitialized) return;
+      isAppInitialized = true;
       const onlineEnabled = firebaseProfile?.preferences?.onlineStatus !== false;
 
       // Set user as online (only if preference is on)

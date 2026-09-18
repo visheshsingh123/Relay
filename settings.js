@@ -296,7 +296,13 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
       try {
         const cached = JSON.parse(localStorage.getItem("relay_user_profile") || "{}");
         cached.photoURL = finalUrl;
+        cached.uid = user.uid;
         localStorage.setItem("relay_user_profile", JSON.stringify(cached));
+        localStorage.setItem("relay_user_cache_" + user.uid, JSON.stringify(cached));
+        if (cached.username) {
+          localStorage.setItem("relay_user_cache_" + cached.username.toLowerCase(), JSON.stringify(cached));
+        }
+        localStorage.setItem("relay_last_viewed_user", JSON.stringify(cached));
       } catch (e) { /* ignore */ }
 
       // 4. Update avatar on current page instantly

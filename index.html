@@ -508,6 +508,25 @@
 
 </div>
 
+<script>
+  (function() {
+    try {
+      var raw = localStorage.getItem("relay_user_profile");
+      if (raw) {
+        var profile = JSON.parse(raw);
+        var photo = profile.photoURL || "Assets/pfp.jpg";
+        var el = document.getElementById("myAvatarInitials");
+        if (el) {
+          el.textContent = "";
+          el.style.backgroundImage = "url('" + photo + "')";
+          el.style.backgroundSize = "cover";
+          el.style.backgroundPosition = "center";
+          el.style.color = "transparent";
+        }
+      }
+    } catch (_) {}
+  })();
+</script>
 <script type="module" src="app.js"></script>
 <script src="pwa-register.js"></script>
 </body>
