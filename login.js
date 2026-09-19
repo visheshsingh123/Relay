@@ -46,7 +46,7 @@ import {
      If already signed in, skip the form entirely.
      --------------------------------------------------------------------- */
   const unsubscribe = onAuthStateChanged(auth, (user) => {
-    if (user) window.location.href = "index.html";
+    if (user) window.location.href = "./";
     unsubscribe();
   });
 
@@ -188,7 +188,7 @@ import {
       await signInWithEmailAndPassword(auth, email, passwordInput.value);
       submitLabel.textContent = "Success — redirecting…";
       window.setTimeout(() => {
-        window.location.href = "index.html";
+        window.location.href = "./";
       }, 400);
     } catch (err) {
       setLoading(false);
@@ -228,7 +228,7 @@ import {
     setGoogleLoading(true);
     try {
       await signInWithPopup(auth, googleProvider);
-      window.location.href = "index.html";
+      window.location.href = "./";
     } catch (err) {
       setGoogleLoading(false);
       if (err.code === "auth/popup-closed-by-user") return;

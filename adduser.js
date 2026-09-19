@@ -51,7 +51,7 @@ import { collection, query, where, limit, getDocs } from "https://www.gstatic.co
           if (user.username) localStorage.setItem("relay_user_cache_" + user.username.toLowerCase(), JSON.stringify(user));
           localStorage.setItem("relay_last_viewed_user", JSON.stringify(user));
         } catch (_) {}
-        window.location.href = `profileview.html?uid=${encodeURIComponent(user.uid)}`;
+        window.location.href = `profileview?uid=${encodeURIComponent(user.uid)}`;
       });
     }
 
@@ -188,7 +188,7 @@ import { collection, query, where, limit, getDocs } from "https://www.gstatic.co
      Hand off to the chat app with the picked user
      --------------------------------------------------------------------- */
   function startConversation(user) {
-    window.location.href = `index.html?to=${encodeURIComponent(user.username)}`;
+    window.location.href = `./?to=${encodeURIComponent(user.username)}`;
   }
 
   searchInput.addEventListener("input", () => {

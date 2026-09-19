@@ -174,7 +174,7 @@ import {
   // Auth Listener
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
-      window.location.href = "login.html";
+      window.location.href = "login";
       return;
     }
 
@@ -199,7 +199,7 @@ import {
 
     if (!targetUid && !targetUsername) {
       showCustomAlert("No user specified to view.", "Error");
-      setTimeout(() => window.location.href = "index.html", 1200);
+      setTimeout(() => window.location.href = "./", 1200);
       return;
     }
 
@@ -268,7 +268,7 @@ import {
   // Message Button
   pvMessageBtn.addEventListener("click", () => {
     if (!targetUser) return;
-    window.location.href = `index.html?to=${encodeURIComponent(targetUser.username)}`;
+    window.location.href = `./?to=${encodeURIComponent(targetUser.username)}`;
   });
 
   // Pin Chat
@@ -371,13 +371,13 @@ import {
   // Search in Chat
   pvSearchBtn.addEventListener("click", () => {
     if (!targetUser) return;
-    window.location.href = `index.html?to=${encodeURIComponent(targetUser.username)}&action=search`;
+    window.location.href = `./?to=${encodeURIComponent(targetUser.username)}&action=search`;
   });
 
   // Summarize with AI
   pvSummarizeBtn.addEventListener("click", () => {
     if (!targetUser) return;
-    window.location.href = `index.html?to=${encodeURIComponent(targetUser.username)}&action=summarize`;
+    window.location.href = `./?to=${encodeURIComponent(targetUser.username)}&action=summarize`;
   });
 
   // Block / Unblock

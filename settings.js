@@ -102,7 +102,7 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
      --------------------------------------------------------------------- */
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
-      window.location.href = "login.html";
+      window.location.href = "login";
       return;
     }
 
@@ -511,7 +511,7 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
   logoutBtn.addEventListener("click", async () => {
     try {
       await signOut(auth);
-      window.location.href = "login.html";
+      window.location.href = "login";
     } catch (error) {
       console.error("Error signing out:", error);
     }
@@ -534,7 +534,7 @@ import { ref, uploadBytes, getDownloadURL } from "https://www.gstatic.com/fireba
       await deleteUser(user);
 
       // Redirect to login
-      window.location.href = "login.html";
+      window.location.href = "login";
     } catch (err) {
       console.error("Error deleting account:", err);
       if (err.code === "auth/requires-recent-login") {

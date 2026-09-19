@@ -15,11 +15,17 @@ const CACHE_NAME = `relay-shell-${VERSION}`;
 
 const SHELL_ASSETS = [
   "./",
+  "./login",
+  "./signup",
+  "./adduser",
+  "./settings",
+  "./profileview",
   "./index.html",
   "./login.html",
   "./signup.html",
   "./adduser.html",
   "./settings.html",
+  "./profileview.html",
   "./styles.css",
   "./landing.css",
   "./app.js",
@@ -27,6 +33,7 @@ const SHELL_ASSETS = [
   "./signup.js",
   "./adduser.js",
   "./settings.js",
+  "./profileview.js",
   "./firebase-config.js",
   "./manifest.json",
   "./Assets/icon-192.png",
@@ -110,12 +117,12 @@ self.addEventListener("notificationclick", (event) => {
 
   const targetUrl = (event.notification.data && event.notification.data.url)
     ? event.notification.data.url
-    : "./index.html";
+    : "./";
 
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
       for (const client of clientList) {
-        if (client.url.includes("index.html") && "focus" in client) {
+        if ("focus" in client) {
           return client.focus();
         }
       }
@@ -142,7 +149,7 @@ self.addEventListener("push", (event) => {
       icon: data.icon || "./Assets/icon-192.png",
       badge: "./Assets/icon-192.png",
       tag: data.tag || "relay-msg",
-      data: { url: "./index.html" },
+      data: { url: "./" },
       vibrate: [100, 50, 100]
     })
   );

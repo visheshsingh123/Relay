@@ -583,7 +583,7 @@ import {
       localStorage.setItem("relay_last_viewed_user", JSON.stringify(user));
     } catch (_) {}
     const identifier = user.uid ? `uid=${encodeURIComponent(user.uid)}` : `username=${encodeURIComponent(user.username)}`;
-    window.location.href = `profileview.html?${identifier}`;
+    window.location.href = `profileview?${identifier}`;
   }
 
   function openChatContextMenu(e, conv, target) {
@@ -3623,7 +3623,7 @@ Do NOT use robotic headers like "Mood & Tone:" or numbered bullet points. Keep i
      --------------------------------------------------------------------- */
   onAuthStateChanged(auth, async (user) => {
     if (!user) {
-      window.location.href = "login.html";
+      window.location.href = "login";
       return;
     }
     firebaseUser = user;
@@ -3815,7 +3815,7 @@ Do NOT use robotic headers like "Mood & Tone:" or numbered bullet points. Keep i
             setTimeout(() => summarizeAndOpenAI(), 400);
           }
         });
-        window.history.replaceState({}, "", "index.html");
+        window.history.replaceState({}, "", location.pathname);
       }
   }
 
