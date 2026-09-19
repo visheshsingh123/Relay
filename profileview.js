@@ -104,7 +104,11 @@ import {
 
     if (pvPinLabel) pvPinLabel.textContent = isPinned ? "Unpin Chat" : "Pin Chat";
     if (pvMuteLabel) pvMuteLabel.textContent = isMuted ? "Unmute Chat" : "Mute Chat";
-    if (pvMuteIcon) pvMuteIcon.textContent = isMuted ? "🔔" : "🔕";
+    if (pvMuteIcon) {
+      pvMuteIcon.innerHTML = isMuted
+        ? `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>`
+        : `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M13.73 21a2 2 0 0 1-3.46 0"></path><path d="M18.63 13A17.89 17.89 0 0 1 18 8"></path><path d="M6.26 6.26A5.86 5.86 0 0 0 6 8c0 7-3 9-3 9h14"></path><path d="M18 8a6 6 0 0 0-9.33-5"></path><line x1="1" y1="1" x2="23" y2="23"></line></svg>`;
+    }
     if (pvBlockLabel) pvBlockLabel.textContent = isBlocked ? "Unblock User" : "Block User";
   }
 
@@ -135,14 +139,14 @@ import {
     }
 
     if (user.isAI) {
-      pvStatus.innerHTML = `<span class="pv-status-pill is-online">🤖 Relay AI Bot</span>`;
+      pvStatus.innerHTML = `<span class="pv-status-pill is-online">Relay AI Bot</span>`;
       pvOnlineBadge.hidden = false;
       pvOnlineBadge.className = "profileview-avatar-badge is-ai";
     } else if (user.preferences?.onlineStatus === false) {
       pvStatus.innerHTML = `<span class="pv-status-pill">Offline</span>`;
       pvOnlineBadge.hidden = true;
     } else if (user.online) {
-      pvStatus.innerHTML = `<span class="pv-status-pill is-online">🟢 Online</span>`;
+      pvStatus.innerHTML = `<span class="pv-status-pill is-online">Online</span>`;
       pvOnlineBadge.hidden = false;
       pvOnlineBadge.className = "profileview-avatar-badge is-online";
     } else {
@@ -280,7 +284,7 @@ import {
         if (currentProfile?.pinnedChats) {
           currentProfile.pinnedChats = currentProfile.pinnedChats.filter(id => id !== targetChatId);
         }
-        showCustomAlert("Conversation unpinned.", "Unpinned 📌");
+        showCustomAlert("Conversation unpinned.", "Unpinned");
       } else {
         await setDoc(doc(db, "users", currentUser.uid), {
           pinnedChats: arrayUnion(targetChatId)
@@ -289,7 +293,7 @@ import {
         if (!currentProfile.pinnedChats.includes(targetChatId)) {
           currentProfile.pinnedChats.push(targetChatId);
         }
-        showCustomAlert("Conversation pinned to top.", "Pinned 📌");
+        showCustomAlert("Conversation pinned to top.", "Pinned");
       }
 
       try {
@@ -336,7 +340,7 @@ import {
           [`mutedChats.${targetChatId}`]: expiry
         }, { merge: true });
         updateActionStates();
-        showCustomAlert("Notifications muted for this conversation.", "Muted 🔕");
+        showCustomAlert("Notifications muted for this conversation.", "Muted");
       } catch (err) {
         showCustomAlert("Failed to mute notifications: " + err.message, "Error");
       }
@@ -355,7 +359,7 @@ import {
           [`mutedChats.${targetChatId}`]: deleteField()
         });
         updateActionStates();
-        showCustomAlert("Notifications unmuted.", "Unmuted 🔔");
+        showCustomAlert("Notifications unmuted.", "Unmuted");
       } catch (err) {
         showCustomAlert("Failed to unmute: " + err.message, "Error");
       }

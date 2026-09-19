@@ -72,6 +72,34 @@ import {
   const searchToggle = document.getElementById("searchToggle");
   const searchBar = document.getElementById("searchBar");
   const searchInput = document.getElementById("searchInput");
+  const chatTabsBar = document.getElementById("chatTabsBar");
+
+  let activeChatTab = (function() {
+    try { return localStorage.getItem("relay_active_tab") || "all"; } catch(e) { return "all"; }
+  })();
+
+  function updateChatTabsUI() {
+    if (!chatTabsBar) return;
+    chatTabsBar.querySelectorAll(".chat-tab-pill").forEach(btn => {
+      const isSel = btn.dataset.tab === activeChatTab;
+      btn.classList.toggle("is-active", isSel);
+      btn.setAttribute("aria-selected", isSel ? "true" : "false");
+    });
+  }
+
+  if (chatTabsBar) {
+    chatTabsBar.querySelectorAll(".chat-tab-pill").forEach(btn => {
+      btn.addEventListener("click", () => {
+        activeChatTab = btn.dataset.tab || "all";
+        try { localStorage.setItem("relay_active_tab", activeChatTab); } catch (e) {}
+        updateChatTabsUI();
+        renderConvList(searchInput ? searchInput.value : "");
+      });
+    });
+    updateChatTabsUI();
+  }
+
+
 
   const threadSearchBtn = document.getElementById("threadSearchBtn");
   const threadSearchBar = document.getElementById("threadSearchBar");
@@ -441,7 +469,7 @@ import {
         [`mutedChats.${chatId}`]: expiry
       }, { merge: true });
       renderConvList(searchInput.value);
-      showCustomAlert("Notifications muted for this conversation.", "Muted 🔕");
+      showCustomAlert("Notifications muted for this conversation.", "Muted");
     } catch (err) {
       console.error("Error muting chat:", err);
       showCustomAlert("Failed to mute chat: " + err.message, "Error");
@@ -462,7 +490,7 @@ import {
         [`mutedChats.${chatId}`]: deleteField()
       });
       renderConvList(searchInput.value);
-      showCustomAlert("Notifications unmuted for this conversation.", "Unmuted 🔔");
+      showCustomAlert("Notifications unmuted for this conversation.", "Unmuted");
     } catch (err) {
       console.error("Error unmuting chat:", err);
       showCustomAlert("Failed to unmute chat: " + err.message, "Error");
@@ -482,7 +510,7 @@ import {
         if (firebaseProfile.pinnedChats) {
           firebaseProfile.pinnedChats = firebaseProfile.pinnedChats.filter(id => id !== chatId);
         }
-        showCustomAlert("Conversation unpinned.", "Unpinned 📌");
+        showCustomAlert("Conversation unpinned.", "Unpinned");
       } else {
         await setDoc(doc(db, "users", firebaseUser.uid), {
           pinnedChats: arrayUnion(chatId)
@@ -491,7 +519,7 @@ import {
         if (!firebaseProfile.pinnedChats.includes(chatId)) {
           firebaseProfile.pinnedChats.push(chatId);
         }
-        showCustomAlert("Conversation pinned to top.", "Pinned 📌");
+        showCustomAlert("Conversation pinned to top.", "Pinned");
       }
 
       try {
@@ -572,25 +600,25 @@ import {
     if (isGroup) {
       menu.innerHTML = `
         <button type="button" class="context-menu__item" id="ctxGroupInfo">
-          <span>👥</span> Group Info
+          <span style="display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="1.8"/></svg></span> Group Info
         </button>
         <button type="button" class="context-menu__item" id="ctxPin">
-          <span>📌</span> ${isPinned ? 'Unpin Group' : 'Pin Group'}
+          <span style="display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M12 17v5M9 2h6l-1 5 4 4v2H6v-2l4-4-1-5z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span> ${isPinned ? 'Unpin Group' : 'Pin Group'}
         </button>
         <button type="button" class="context-menu__item" id="ctxMute">
-          <span>${isMuted ? '🔔' : '🔕'}</span> ${isMuted ? 'Unmute Group' : 'Mute Group'}
+          <span style="display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M13.73 21a2 2 0 0 1-3.46 0M18.63 13A17.89 17.89 0 0 1 18 8A6 6 0 0 0 6 8c0 .7-.08 1.38-.24 2.03M1 1l22 22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span> ${isMuted ? 'Unmute Group' : 'Mute Group'}
         </button>
         <button type="button" class="context-menu__item" id="ctxSearch">
-          <span>🔍</span> Search in Chat
+          <span style="display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/><path d="M15.5 15.5L20 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span> Search in Chat
         </button>
         <button type="button" class="context-menu__item" id="ctxSummarize">
-          <span>📝</span> Summarize
+          <span style="display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="1.8"/><path d="M14 2v6h6M16 13H8M16 17H8" stroke="currentColor" stroke-width="1.8"/></svg></span> Summarize
         </button>
         <button type="button" class="context-menu__item context-menu__item--danger" id="ctxLeaveGroup">
-          <span>🚪</span> Leave Group
+          <span style="display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4M16 17l5-5-5-5M21 12H9" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span> Leave Group
         </button>
         <button type="button" class="context-menu__item context-menu__item--danger" id="ctxDelete">
-          <span>🗑️</span> Delete Messages
+          <span style="display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" stroke-width="1.8"/></svg></span> Delete Messages
         </button>
       `;
 
@@ -676,25 +704,25 @@ import {
 
     menu.innerHTML = `
         <button type="button" class="context-menu__item" id="ctxViewProfile">
-          <span>👤</span> View Profile
+          <span style="display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="1.8"/></svg></span> View Profile
         </button>
         <button type="button" class="context-menu__item" id="ctxPin">
-          <span>📌</span> ${isPinned ? 'Unpin Chat' : 'Pin Chat'}
+          <span style="display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M12 17v5M9 2h6l-1 5 4 4v2H6v-2l4-4-1-5z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span> ${isPinned ? 'Unpin Chat' : 'Pin Chat'}
         </button>
         <button type="button" class="context-menu__item" id="ctxMute">
-          <span>${isMuted ? '🔔' : '🔕'}</span> ${isMuted ? 'Unmute Chat' : 'Mute Chat'}
+          <span style="display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M13.73 21a2 2 0 0 1-3.46 0M18.63 13A17.89 17.89 0 0 1 18 8A6 6 0 0 0 6 8c0 .7-.08 1.38-.24 2.03M1 1l22 22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span> ${isMuted ? 'Unmute Chat' : 'Mute Chat'}
         </button>
         <button type="button" class="context-menu__item" id="ctxSearch">
-          <span>🔍</span> Search in Chat
+          <span style="display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"><circle cx="11" cy="11" r="6.5" stroke="currentColor" stroke-width="1.8"/><path d="M15.5 15.5L20 20" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span> Search in Chat
         </button>
         <button type="button" class="context-menu__item" id="ctxSummarize">
-          <span>📝</span> Summarize
+          <span style="display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" stroke="currentColor" stroke-width="1.8"/><path d="M14 2v6h6M16 13H8M16 17H8" stroke="currentColor" stroke-width="1.8"/></svg></span> Summarize
         </button>
         <button type="button" class="context-menu__item" id="ctxBlock">
-          <span>🚫</span> ${isBlocked ? "Unblock User" : "Block User"}
+          <span style="display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><line x1="5.6" y1="5.6" x2="18.4" y2="18.4" stroke="currentColor" stroke-width="1.8"/></svg></span> ${isBlocked ? "Unblock User" : "Block User"}
         </button>
         <button type="button" class="context-menu__item context-menu__item--danger" id="ctxDelete">
-          <span>🗑️</span> Delete Messages
+          <span style="display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" stroke-width="1.8"/></svg></span> Delete Messages
         </button>
       `;
 
@@ -776,7 +804,7 @@ import {
     loadCard.className = "bubble__translation";
     loadCard.innerHTML = `
       <div class="bubble__translation-header">
-        <span>🌐 Translating with AI...</span>
+        <span>Translating with AI...</span>
       </div>
     `;
     bubbleEl.appendChild(loadCard);
@@ -793,7 +821,7 @@ import {
       const textToShow = translated || "Could not translate message.";
       loadCard.innerHTML = `
         <div class="bubble__translation-header">
-          <span>🌐 Translated (AI)</span>
+          <span>Translated (AI)</span>
           <button type="button" class="bubble__translation-close" aria-label="Close translation">✕</button>
         </div>
         <p class="bubble__translation-text">${escapeHtml(textToShow)}</p>
@@ -877,7 +905,7 @@ import {
       if (c.isGroup) {
         avatarHtml = c.groupPhotoURL
           ? `<span class="avatar avatar--sm" style="background-image:url('${escapeHtml(c.groupPhotoURL)}');background-size:cover;background-position:center;color:transparent;"></span>`
-          : `<span class="avatar avatar--sm" style="background:rgba(110,86,207,0.3);border:1px solid var(--accent);font-size:1rem;display:flex;align-items:center;justify-content:center;">👥</span>`;
+          : `<span class="avatar avatar--sm" style="background:rgba(110,86,207,0.3);border:1px solid var(--accent);display:flex;align-items:center;justify-content:center;color:var(--accent);"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></span>`;
         nameHtml = `${escapeHtml(c.groupName || 'Group')} <span class="group-pill" style="margin-left:4px;">Group</span>`;
       } else {
         const other = { uid: c.otherUid, ...c.users[c.otherUid] };
@@ -955,7 +983,7 @@ import {
         });
       }
 
-      showCustomAlert("Message forwarded successfully.", "Forwarded ➡️");
+      showCustomAlert("Message forwarded successfully.", "Forwarded");
     } catch (err) {
       console.error("Error forwarding message:", err);
       showCustomAlert("Failed to forward message: " + err.message, "Error");
@@ -1144,7 +1172,7 @@ import {
         });
 
         closeCreateGroupModal();
-        showCustomAlert(`Group "${name}" created!`, "Group Created 👥");
+        showCustomAlert(`Group "${name}" created!`, "Group Created");
 
         const newGroupObj = {
           id: newChatRef.id,
@@ -1180,7 +1208,7 @@ import {
         groupInfoAvatar.style.backgroundImage = `url('${group.groupPhotoURL}')`;
         groupInfoAvatar.style.backgroundSize = "cover";
       } else {
-        groupInfoAvatar.textContent = "👥";
+        groupInfoAvatar.innerHTML = `<svg viewBox="0 0 24 24" width="22" height="22" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="var(--highlight)" stroke-width="2"/><circle cx="9" cy="7" r="4" stroke="var(--highlight)" stroke-width="2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="var(--highlight)" stroke-width="2"/></svg>`;
         groupInfoAvatar.style.backgroundImage = "none";
       }
     }
@@ -1376,7 +1404,7 @@ import {
         });
 
         await updateDoc(doc(db, "chats", groupId), updatePayload);
-        showCustomAlert("Members added to group successfully!", "Members Added 👥");
+        showCustomAlert("Members added to group successfully!", "Members Added");
         openGroupInfoModal();
       } catch (err) {
         showCustomAlert("Failed to add members: " + err.message, "Error");
@@ -1403,26 +1431,34 @@ import {
         <button type="button" class="ctx-reaction-btn" data-emoji="👍">👍</button>
       </div>
       <button type="button" class="context-menu__item" id="ctxReplyMsg">
-        <span>↩️</span> Reply
+        <span style="display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M9 14L4 9l5-5" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/><path d="M4 9h10.5a5.5 5.5 0 0 1 5.5 5.5v0a5.5 5.5 0 0 1-5.5 5.5H11" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg></span> Reply
       </button>
       <button type="button" class="context-menu__item" id="ctxForwardMsg">
-        <span>➡️</span> Forward
+        <span style="display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M5 12h14M12 5l7 7-7 7" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span> Forward
       </button>
       <button type="button" class="context-menu__item" id="ctxCopyMsg">
-        <span>📋</span> Copy Text
+        <span style="display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"><rect x="9" y="9" width="11" height="11" rx="2" stroke="currentColor" stroke-width="1.8"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1" stroke="currentColor" stroke-width="1.8"/></svg></span> Copy Text
       </button>
       <button type="button" class="context-menu__item" id="ctxTranslateMsg">
-        <span>🌐</span> Translate
+        <span style="display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"><circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/><path d="M3.6 9h16.8M3.6 15h16.8M12 3a14.5 14.5 0 0 0 0 18 14.5 14.5 0 0 0 0-18z" stroke="currentColor" stroke-width="1.8"/></svg></span> Translate
       </button>
     `;
+
+    if (msg.photoURL) {
+      itemsHtml += `
+        <button type="button" class="context-menu__item" id="ctxSavePhotoMsg">
+          <span style="display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span> Save Image / Download
+        </button>
+      `;
+    }
 
     if (isMe) {
       itemsHtml += `
         <button type="button" class="context-menu__item" id="ctxEditMsg">
-          <span>✏️</span> Edit Message
+          <span style="display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span> Edit Message
         </button>
         <button type="button" class="context-menu__item context-menu__item--danger" id="ctxDeleteMsg">
-          <span>🗑️</span> Unsend Message
+          <span style="display:flex;align-items:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" stroke="currentColor" stroke-width="1.8"/></svg></span> Unsend Message
         </button>
       `;
     }
@@ -1431,8 +1467,9 @@ import {
     document.body.appendChild(menu);
     activeContextMenu = menu;
 
+    const extraHeight = (msg.photoURL ? 40 : 0) + (isMe ? 90 : 0);
     const menuWidth = 200;
-    const menuHeight = isMe ? 280 : 190;
+    const menuHeight = 190 + extraHeight;
     let posX = e.clientX;
     let posY = e.clientY;
 
@@ -1448,6 +1485,14 @@ import {
         toggleReaction(msg.id, btn.dataset.emoji);
       });
     });
+
+    const savePhotoBtn = menu.querySelector("#ctxSavePhotoMsg");
+    if (savePhotoBtn) {
+      savePhotoBtn.addEventListener("click", () => {
+        closeContextMenu();
+        downloadPhoto(msg.photoURL);
+      });
+    }
 
     menu.querySelector("#ctxReplyMsg").addEventListener("click", () => {
       closeContextMenu();
@@ -1601,10 +1646,20 @@ import {
       sidebarEmpty.hidden = chats.length > 0;
     }
 
+
+
     sortChats();
 
     chats
       .filter((c) => {
+        // Chat Tab Filter
+        const unreadCount = (currentUid && c.unreadCounts && c.unreadCounts[currentUid]) || 0;
+        if (activeChatTab === "unread" && unreadCount <= 0) return false;
+        if (activeChatTab === "personal" && (c.isGroup || c.otherUid === AI_USER.uid)) return false;
+        if (activeChatTab === "groups" && !c.isGroup) return false;
+        if (activeChatTab === "ai" && (c.otherUid !== AI_USER.uid && c.id !== "ai-relay")) return false;
+
+        // Search Query Filter
         const q = query.replace(/^@/, "");
         if (c.isGroup) {
           return (c.groupName || "").toLowerCase().includes(query);
@@ -1637,6 +1692,9 @@ import {
         const unreadCount = (currentUid && conv.unreadCounts && conv.unreadCounts[currentUid]) || 0;
         const isPinned = Array.isArray(firebaseProfile?.pinnedChats) && firebaseProfile.pinnedChats.includes(conv.id);
         const isMuted = isChatMuted(conv.id);
+
+        const draftText = localStorage.getItem("relay_draft_" + conv.id);
+        const hasDraft = !!(draftText && draftText.trim());
 
         const item = document.createElement("button");
         item.type = "button";
@@ -1671,8 +1729,9 @@ import {
         }
 
         const groupBadgeHtml = isGroup ? `<span class="group-pill">Group</span>` : "";
-        const pinIconHtml = isPinned ? `<span class="conv-item__pin" title="Pinned conversation" aria-label="Pinned">📌</span>` : "";
-        const muteIconHtml = isMuted ? `<span class="conv-item__mute" title="Muted conversation" aria-label="Muted">🔕</span>` : "";
+        const pinIconHtml = isPinned ? `<span class="conv-item__pin" title="Pinned conversation" aria-label="Pinned" style="display:inline-flex;align-items:center;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none"><path d="M12 17v5M9 2h6l-1 5 4 4v2H6v-2l4-4-1-5z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>` : "";
+        const muteIconHtml = isMuted ? `<span class="conv-item__mute" title="Muted conversation" aria-label="Muted" style="display:inline-flex;align-items:center;"><svg viewBox="0 0 24 24" width="12" height="12" fill="none"><path d="M13.73 21a2 2 0 0 1-3.46 0M18.63 13A17.89 17.89 0 0 1 18 8A6 6 0 0 0 6 8c0 .7-.08 1.38-.24 2.03M1 1l22 22" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg></span>` : "";
+        const draftTagHtml = hasDraft ? `<span class="draft-pill">Draft</span>` : "";
 
         const badgeHtml = (unreadCount > 0 && conv.id !== activeChatId)
           ? `<span class="unread-badge" aria-label="${unreadCount} unread messages">${unreadCount > 99 ? "99+" : unreadCount}</span>`
@@ -1682,10 +1741,14 @@ import {
         if (isGroup) {
           avatarHtml = conv.groupPhotoURL
             ? `<span class="avatar avatar--sm" style="background-image: url('${escapeHtml(conv.groupPhotoURL)}'); background-size: cover; background-position: center; color: transparent;"></span>`
-            : `<span class="avatar avatar--sm" style="background: rgba(110, 86, 207, 0.3); border: 1px solid var(--accent); font-size: 1.05rem; display:flex; align-items:center; justify-content:center;">👥</span>`;
+            : `<span class="avatar avatar--sm" style="background: rgba(110, 86, 207, 0.25); border: 1px solid var(--accent); display:flex; align-items:center; justify-content:center;"><svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="var(--highlight)" stroke-width="2"/><circle cx="9" cy="7" r="4" stroke="var(--highlight)" stroke-width="2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="var(--highlight)" stroke-width="2"/></svg></span>`;
         } else {
           avatarHtml = renderAvatarHtml(otherUser, "avatar--sm");
         }
+
+        const previewTextHtml = hasDraft
+          ? `<span class="conv-item__preview conv-item__draft-text">Draft: ${escapeHtml(draftText.trim())}</span>`
+          : `<span class="conv-item__preview">${escapeHtml(lastText)}</span>`;
 
         item.innerHTML = `
           <span class="avatar-wrap">
@@ -1698,12 +1761,13 @@ import {
                 ${groupBadgeHtml}
                 ${pinIconHtml}
                 ${muteIconHtml}
+                ${draftTagHtml}
                 ${requestTagHtml}
               </span>
               <span class="conv-item__time">${timeStr}</span>
             </span>
             <span class="conv-item__preview-row">
-              <span class="conv-item__preview">${escapeHtml(lastText)}</span>
+              ${previewTextHtml}
               ${badgeHtml}
             </span>
           </span>
@@ -1839,6 +1903,14 @@ import {
         senderNameHtml = `<div class="bubble__sender-name">${escapeHtml(msg.senderName || msg.senderUsername || 'Member')}</div>`;
       }
 
+      const photoHtml = msg.photoURL ? `
+        <div class="bubble__image-wrap" data-photo-src="${escapeHtml(msg.photoURL)}">
+          <img src="${escapeHtml(msg.photoURL)}" class="bubble__image" alt="Shared photo" loading="lazy">
+        </div>
+      ` : "";
+
+      const textHtml = msg.text ? `<span class="bubble__text">${renderedTextHtml}</span>` : "";
+
       row.innerHTML = `
         <div class="reply-swipe-hint">↩️</div>
         ${floatingReactionHtml}
@@ -1846,7 +1918,8 @@ import {
           ${senderNameHtml}
           ${forwardedHtml}
           ${quoteHtml}
-          <span class="bubble__text">${renderedTextHtml}</span>
+          ${photoHtml}
+          ${textHtml}
           <span class="bubble__meta">${editedHtml}${timeStr}${checks}</span>
           ${reactionsHtml}
         </div>
@@ -1898,6 +1971,9 @@ import {
 
         bubbleEl.addEventListener("touchstart", (e) => {
           if (e.touches.length > 1) return;
+          if (e.target.closest(".bubble__image-wrap") || e.target.closest(".msg-reaction-bar") || e.target.closest(".bubble__reactions")) {
+            return;
+          }
           touchStartX = e.touches[0].clientX;
           touchStartY = e.touches[0].clientY;
           isSwiping = false;
@@ -1969,6 +2045,19 @@ import {
     });
 
     threadEl.scrollTop = threadEl.scrollHeight;
+
+    if (threadEl && !threadEl.dataset.photoDelegated) {
+      threadEl.dataset.photoDelegated = "true";
+      threadEl.addEventListener("click", (e) => {
+        const imgWrap = e.target.closest(".bubble__image-wrap");
+        if (imgWrap) {
+          e.preventDefault();
+          e.stopPropagation();
+          const src = imgWrap.dataset.photoSrc || imgWrap.querySelector("img")?.src;
+          if (src) openPhotoLightbox(src);
+        }
+      });
+    }
   }
 
   /* ---------------------------------------------------------------------
@@ -1994,7 +2083,7 @@ import {
     if (activeChatGroup) {
       chatNameEl.textContent = activeChatGroup.groupName || "Group";
       const photo = activeChatGroup.groupPhotoURL;
-      chatAvatarEl.textContent = photo ? "" : "👥";
+      chatAvatarEl.innerHTML = photo ? "" : `<svg viewBox="0 0 24 24" width="20" height="20" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="var(--highlight)" stroke-width="2"/><circle cx="9" cy="7" r="4" stroke="var(--highlight)" stroke-width="2"/><path d="M23 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75" stroke="var(--highlight)" stroke-width="2"/></svg>`;
       if (photo) {
         chatAvatarEl.style.backgroundImage = `url('${photo}')`;
         chatAvatarEl.style.backgroundSize = "cover";
@@ -2002,8 +2091,6 @@ import {
         chatAvatarEl.style.color = "transparent";
       } else {
         chatAvatarEl.style.backgroundImage = "none";
-        chatAvatarEl.style.color = "var(--text-primary)";
-        chatAvatarEl.style.fontSize = "1.2rem";
         chatAvatarEl.style.display = "flex";
         chatAvatarEl.style.alignItems = "center";
         chatAvatarEl.style.justifyContent = "center";
@@ -2067,6 +2154,15 @@ import {
      Selecting a conversation
      --------------------------------------------------------------------- */
   function selectConversation(id, target) {
+    if (activeChatId && messageInput) {
+      const prevDraft = messageInput.value;
+      if (prevDraft.trim()) {
+        try { localStorage.setItem("relay_draft_" + activeChatId, prevDraft); } catch (_) {}
+      } else {
+        try { localStorage.removeItem("relay_draft_" + activeChatId); } catch (_) {}
+      }
+    }
+
     cancelEditingMessage();
     cancelReplying();
     closeThreadSearch();
@@ -2090,13 +2186,23 @@ import {
 
     renderConvList(searchInput.value);
     renderChatHeader(target);
+
+    // Restore draft message if present for this chat
+    const restoredDraft = localStorage.getItem("relay_draft_" + id) || "";
+    messageInput.value = restoredDraft;
+    const hasDraftContent = restoredDraft.trim().length > 0;
+
     if (isGroup) {
       messageInput.disabled = false;
       messageInput.placeholder = `Message ${activeChatGroup?.groupName || "group"}…`;
-      sendBtn.disabled = true;
-      sendBtn.classList.remove("is-active");
+      sendBtn.disabled = !hasDraftContent;
+      sendBtn.classList.toggle("is-active", hasDraftContent);
     } else {
       updateBlockedUI(activeChatUser);
+      if (hasDraftContent) {
+        sendBtn.disabled = false;
+        sendBtn.classList.add("is-active");
+      }
     }
     showChatPane();
 
@@ -2317,13 +2423,13 @@ import {
 
     if (activeChatGroup) {
       if (viewProfileChatMenuBtnLabel) viewProfileChatMenuBtnLabel.textContent = "Group Info";
-      if (viewProfileChatMenuBtnIcon) viewProfileChatMenuBtnIcon.textContent = "👥";
+      if (viewProfileChatMenuBtnIcon) viewProfileChatMenuBtnIcon.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.8"/><circle cx="9" cy="7" r="4" stroke="currentColor" stroke-width="1.8"/></svg>`;
       if (blockUserBtnLabel) blockUserBtnLabel.textContent = "Leave Group";
     } else {
       const targetUid = activeChatUser?.uid || activeChatUser?.id;
       const isBlocked = targetUid ? isUserBlocked(targetUid) : false;
       if (viewProfileChatMenuBtnLabel) viewProfileChatMenuBtnLabel.textContent = "View Profile";
-      if (viewProfileChatMenuBtnIcon) viewProfileChatMenuBtnIcon.textContent = "👤";
+      if (viewProfileChatMenuBtnIcon) viewProfileChatMenuBtnIcon.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" stroke="currentColor" stroke-width="1.8"/><circle cx="12" cy="7" r="4" stroke="currentColor" stroke-width="1.8"/></svg>`;
       if (blockUserBtnLabel) blockUserBtnLabel.textContent = isBlocked ? "Unblock user" : "Block user";
     }
 
@@ -2334,7 +2440,7 @@ import {
       muteChatMenuBtnLabel.textContent = isMuted ? "Unmute notifications" : "Mute notifications";
     }
     if (muteChatMenuBtnIcon) {
-      muteChatMenuBtnIcon.textContent = isMuted ? "🔔" : "🔕";
+      muteChatMenuBtnIcon.innerHTML = `<svg viewBox="0 0 24 24" width="16" height="16" fill="none"><path d="M13.73 21a2 2 0 0 1-3.46 0M18.63 13A17.89 17.89 0 0 1 18 8A6 6 0 0 0 6 8c0 .7-.08 1.38-.24 2.03M1 1l22 22" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>`;
     }
 
     chatMenuDropdown.hidden = false;
@@ -2904,7 +3010,7 @@ Do NOT use robotic headers like "Mood & Tone:" or numbered bullet points. Keep i
       const resBox = document.getElementById("aiRewriteResultContainer");
       const resText = document.getElementById("aiRewriteResult");
       if (resBox && resText) {
-        resText.textContent = "✨ Rewriting message with AI...";
+        resText.textContent = "Rewriting message with AI...";
         resBox.hidden = false;
       }
 
@@ -2955,7 +3061,7 @@ Do NOT use robotic headers like "Mood & Tone:" or numbered bullet points. Keep i
       const resBox = document.getElementById("aiDraftResultContainer");
       const resText = document.getElementById("aiDraftResult");
       if (resBox && resText) {
-        resText.textContent = "✨ Drafting reply with AI...";
+        resText.textContent = "Drafting reply with AI...";
         resBox.hidden = false;
       }
 
@@ -3005,7 +3111,7 @@ Do NOT use robotic headers like "Mood & Tone:" or numbered bullet points. Keep i
       const resBox = document.getElementById("aiSummaryResultContainer");
       const resText = document.getElementById("aiSummaryResult");
       if (resBox && resText) {
-        resText.textContent = "📝 Generating summary with AI...";
+        resText.textContent = "Generating summary with AI...";
         resBox.hidden = false;
       }
 
@@ -3130,6 +3236,117 @@ Do NOT use robotic headers like "Mood & Tone:" or numbered bullet points. Keep i
   });
 
   /* ---------------------------------------------------------------------
+     Photo Attachment & Image Compression Engine
+     --------------------------------------------------------------------- */
+  let pendingPhotoDataUrl = null;
+
+  const photoAttachBtn = document.getElementById("photoAttachBtn");
+  const photoFileInput = document.getElementById("photoFileInput");
+  const photoPreviewBar = document.getElementById("photoPreviewBar");
+  const photoPreviewImg = document.getElementById("photoPreviewImg");
+  const photoPreviewTitle = document.getElementById("photoPreviewTitle");
+  const photoPreviewSize = document.getElementById("photoPreviewSize");
+  const photoPreviewCancel = document.getElementById("photoPreviewCancel");
+
+  function compressImageFile(file, maxDimension = 1024, quality = 0.75) {
+    return new Promise((resolve, reject) => {
+      if (!file || !file.type.startsWith("image/")) {
+        reject(new Error("Selected file is not an image."));
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const img = new Image();
+        img.onload = () => {
+          let width = img.width;
+          let height = img.height;
+
+          if (width > maxDimension || height > maxDimension) {
+            if (width > height) {
+              height = Math.round((height * maxDimension) / width);
+              width = maxDimension;
+            } else {
+              width = Math.round((width * maxDimension) / height);
+              height = maxDimension;
+            }
+          }
+
+          const canvas = document.createElement("canvas");
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext("2d");
+          ctx.drawImage(img, 0, 0, width, height);
+
+          const dataUrl = canvas.toDataURL("image/jpeg", quality);
+          const originalKb = Math.round(file.size / 1024);
+          const compressedKb = Math.round((dataUrl.length * 0.75) / 1024);
+
+          resolve({
+            dataUrl,
+            originalSize: originalKb > 1024 ? (originalKb / 1024).toFixed(1) + " MB" : originalKb + " KB",
+            compressedSize: compressedKb > 1024 ? (compressedKb / 1024).toFixed(1) + " MB" : compressedKb + " KB",
+            fileName: file.name
+          });
+        };
+        img.onerror = () => reject(new Error("Failed to load image."));
+        img.src = e.target.result;
+      };
+      reader.onerror = () => reject(new Error("Failed to read file."));
+      reader.readAsDataURL(file);
+    });
+  }
+
+  function clearPendingPhoto() {
+    pendingPhotoDataUrl = null;
+    if (photoFileInput) photoFileInput.value = "";
+    if (photoPreviewBar) photoPreviewBar.hidden = true;
+    if (photoPreviewImg) photoPreviewImg.src = "";
+    if (messageInput && !messageInput.value.trim() && sendBtn) {
+      sendBtn.disabled = true;
+      sendBtn.classList.remove("is-active");
+    }
+  }
+
+  if (photoAttachBtn && photoFileInput) {
+    photoAttachBtn.addEventListener("click", () => {
+      photoFileInput.value = "";
+      photoFileInput.click();
+    });
+
+    photoFileInput.addEventListener("change", async (e) => {
+      const file = e.target.files && e.target.files[0];
+      if (!file) return;
+
+      try {
+        if (photoPreviewTitle) photoPreviewTitle.textContent = "Compressing photo...";
+        if (photoPreviewSize) photoPreviewSize.textContent = "Please wait";
+        if (photoPreviewBar) photoPreviewBar.hidden = false;
+
+        const result = await compressImageFile(file, 1024, 0.75);
+        pendingPhotoDataUrl = result.dataUrl;
+
+        if (photoPreviewImg) photoPreviewImg.src = result.dataUrl;
+        if (photoPreviewTitle) photoPreviewTitle.textContent = result.fileName || "Photo attached";
+        if (photoPreviewSize) photoPreviewSize.textContent = `${result.originalSize} → ${result.compressedSize} (Compressed)`;
+
+        if (sendBtn) {
+          sendBtn.disabled = false;
+          sendBtn.classList.add("is-active");
+        }
+      } catch (err) {
+        console.error("Image compression error:", err);
+        showCustomAlert("Failed to process image: " + err.message, "Error");
+        clearPendingPhoto();
+      }
+    });
+  }
+
+  if (photoPreviewCancel) {
+    photoPreviewCancel.addEventListener("click", clearPendingPhoto);
+  }
+
+  /* ---------------------------------------------------------------------
      Composer: enable/disable send button, submit new message
      --------------------------------------------------------------------- */
   async function setTyping(isTyping) {
@@ -3142,9 +3359,18 @@ Do NOT use robotic headers like "Mood & Tone:" or numbered bullet points. Keep i
   }
 
   messageInput.addEventListener("input", () => {
-    const hasText = messageInput.value.trim().length > 0;
-    sendBtn.disabled = !hasText;
-    sendBtn.classList.toggle("is-active", hasText);
+    const hasContent = messageInput.value.trim().length > 0 || !!pendingPhotoDataUrl;
+    sendBtn.disabled = !hasContent;
+    sendBtn.classList.toggle("is-active", hasContent);
+
+    if (activeChatId) {
+      if (messageInput.value.trim().length > 0) {
+        try { localStorage.setItem("relay_draft_" + activeChatId, messageInput.value); } catch (_) {}
+      } else {
+        try { localStorage.removeItem("relay_draft_" + activeChatId); } catch (_) {}
+      }
+      renderConvList(searchInput.value);
+    }
     
     // Typing indicator
     setTyping(true);
@@ -3159,9 +3385,12 @@ Do NOT use robotic headers like "Mood & Tone:" or numbered bullet points. Keep i
       return;
     }
     const text = messageInput.value.trim();
-    if (!text || !activeChatId) return;
+    if (!text && !pendingPhotoDataUrl) return;
+    if (!activeChatId) return;
 
     const chatId = activeChatId;
+    try { localStorage.removeItem("relay_draft_" + chatId); } catch (_) {}
+    renderConvList(searchInput.value);
 
     if (editingMessageId) {
       const targetMsgId = editingMessageId;
@@ -3197,6 +3426,9 @@ Do NOT use robotic headers like "Mood & Tone:" or numbered bullet points. Keep i
       cancelReplying();
     }
 
+    const photoToSend = pendingPhotoDataUrl;
+    clearPendingPhoto();
+
     messageInput.value = "";
     sendBtn.disabled = true;
     sendBtn.classList.remove("is-active");
@@ -3213,9 +3445,9 @@ Do NOT use robotic headers like "Mood & Tone:" or numbered bullet points. Keep i
         const myUsername = firebaseProfile?.username || "user";
         const myPhoto = firebaseProfile?.photoURL || null;
 
-        // Add message
+        // Add message doc
         const msgDoc = {
-            text,
+            text: text || "",
             senderId: firebaseUser.uid,
             senderName: myName,
             senderUsername: myUsername,
@@ -3223,12 +3455,17 @@ Do NOT use robotic headers like "Mood & Tone:" or numbered bullet points. Keep i
             createdAt: serverTimestamp(),
             read: false
         };
+        if (photoToSend) {
+            msgDoc.photoURL = photoToSend;
+        }
         if (currentReplyData) {
             msgDoc.replyTo = currentReplyData;
         }
         await addDoc(collection(db, "chats", chatId, "messages"), msgDoc);
         playSendSound();
         
+        const lastMsgSummary = photoToSend ? (text ? `Photo: ${text}` : "Photo") : text;
+
         if (activeChatGroup) {
           const unreadUpdates = {};
           (activeChatGroup.participants || []).forEach(pUid => {
@@ -3238,7 +3475,7 @@ Do NOT use robotic headers like "Mood & Tone:" or numbered bullet points. Keep i
           });
 
           await updateDoc(doc(db, "chats", chatId), {
-            lastMessage: text,
+            lastMessage: lastMsgSummary,
             lastSenderName: myName,
             updatedAt: serverTimestamp(),
             ...unreadUpdates
@@ -3246,7 +3483,7 @@ Do NOT use robotic headers like "Mood & Tone:" or numbered bullet points. Keep i
         } else if (activeChatUser) {
           const recipientUid = activeChatUser.uid || activeChatUser.id;
           await updateDoc(doc(db, "chats", chatId), {
-            lastMessage: text,
+            lastMessage: lastMsgSummary,
             updatedAt: serverTimestamp(),
             [`unreadCounts.${recipientUid}`]: increment(1)
           });
@@ -3255,7 +3492,7 @@ Do NOT use robotic headers like "Mood & Tone:" or numbered bullet points. Keep i
           if (recipientUid === AI_USER.uid) {
             setTimeout(async () => {
               try {
-                const replyText = await generateAIReply(text);
+                const replyText = await generateAIReply(text || "Sent a photo");
                 await addDoc(collection(db, "chats", chatId, "messages"), {
                   text: replyText,
                   senderId: AI_USER.uid,

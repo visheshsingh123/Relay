@@ -3223,10 +3223,41 @@ textarea:focus-visible,
   margin-left: 4px;
 }
 .group-member-item__checkbox {
-  width: 18px;
-  height: 18px;
-  accent-color: var(--accent);
+  appearance: none;
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 5px;
+  border: 1px solid var(--border-hairline);
+  background: var(--bg-canvas);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   cursor: pointer;
+  position: relative;
+  transition: background var(--duration-fast) var(--ease-standard),
+              border-color var(--duration-fast) var(--ease-standard);
+  margin: 0;
+}
+
+.group-member-item__checkbox:checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.group-member-item__checkbox:checked::after {
+  content: "";
+  width: 10px;
+  height: 6px;
+  border-left: 2px solid var(--text-primary);
+  border-bottom: 2px solid var(--text-primary);
+  transform: rotate(-45deg) translateY(-1px);
+}
+
+.group-member-item__checkbox:focus-visible {
+  outline: 2px solid var(--highlight);
+  outline-offset: 2px;
 }
 
 /* ── Group Pill Badge in Conversation List ────────────────────────── */
@@ -3377,6 +3408,185 @@ textarea:focus-visible,
 .group-member-remove-btn:hover {
   color: var(--danger);
 }
+
+/* ==========================================================================
+   Chat Organization & Productivity Suite Styles
+   ========================================================================== */
+
+/* Chat Tabs Filter Bar */
+.chat-tabs-bar {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px 10px 12px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  border-bottom: 1px solid var(--border-hairline);
+  background: var(--bg-surface);
+}
+.chat-tabs-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.chat-tab-pill {
+  flex-shrink: 0;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-hairline);
+  color: var(--text-muted);
+  font-size: var(--fs-xs);
+  font-weight: 500;
+  padding: 4px 11px;
+  border-radius: var(--radius-full);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: all var(--duration-fast) var(--ease-standard);
+}
+.chat-tab-pill:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--text-main);
+  border-color: rgba(255, 255, 255, 0.15);
+}
+.chat-tab-pill.is-active {
+  background: var(--accent);
+  color: #ffffff;
+  border-color: var(--accent);
+  font-weight: 600;
+  box-shadow: 0 2px 8px rgba(110, 86, 207, 0.35);
+}
+
+/* Draft Badges in Sidebar */
+.draft-pill {
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: #f59e0b;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.35);
+  padding: 1px 6px;
+  border-radius: var(--radius-full);
+  margin-left: 4px;
+}
+.conv-item__draft-text {
+  color: #f59e0b !important;
+  font-style: italic;
+}
+
+/* In-Chat Search Highlights */
+mark.search-highlight {
+  background: rgba(251, 191, 36, 0.35);
+  color: #ffffff;
+  border-radius: 2px;
+  padding: 0 2px;
+  border-bottom: 1.5px solid #fbbf24;
+}
+mark.search-highlight.is-current {
+  background: #f59e0b;
+  color: #0d0b14;
+  font-weight: bold;
+  /* Attachment Action Button */
+.composer__action-btn {
+  width: 44px;
+  height: 44px;
+  flex-shrink: 0;
+  border-radius: var(--radius-full);
+  background: var(--bg-surface);
+  border: 1px solid var(--border-hairline);
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background var(--duration-fast) var(--ease-standard),
+              color var(--duration-fast) var(--ease-standard);
+  cursor: pointer;
+}
+.composer__action-btn:hover {
+  background: var(--bg-surface-raised);
+  color: var(--highlight);
+  border-color: rgba(156, 129, 245, 0.3);
+}
+
+/* Photo Attachment Preview Bar */
+.photo-preview-bar {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  background: rgba(110, 86, 207, 0.12);
+  border: 1px solid rgba(156, 129, 245, 0.25);
+  border-left: 3px solid var(--highlight);
+  border-radius: var(--radius-md);
+  padding: 6px 12px;
+  margin-bottom: 8px;
+}
+.photo-preview-bar[hidden] { display: none !important; }
+
+.photo-preview-bar__left {
+  display: flex;
+  align-items: center;
+  gap: var(--sp-3);
+  min-width: 0;
+}
+
+.photo-preview-bar__img {
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-sm);
+  object-fit: cover;
+  border: 1px solid var(--border-hairline);
+  flex-shrink: 0;
+}
+
+.photo-preview-bar__info {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.photo-preview-bar__title {
+  font-size: var(--fs-xs);
+  font-weight: 700;
+  color: var(--highlight);
+}
+
+.photo-preview-bar__size {
+  font-size: 0.6875rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Message Bubble Photo Card */
+.bubble__image-wrap {
+  margin-top: 4px;
+  margin-bottom: 4px;
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  max-width: 300px;
+  cursor: pointer !important;
+  position: relative;
+  z-index: 2;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  transition: transform var(--duration-fast) var(--ease-standard),
+              opacity var(--duration-fast) var(--ease-standard);
+}
+.bubble__image-wrap:hover {
+  opacity: 0.92;
+  transform: scale(0.99);
+}
+
+.bubble__image {
+  width: 100%;
+  height: auto;
+  max-height: 320px;
+  object-fit: cover;
+  display: block;
+  cursor: pointer !important;
+  pointer-events: auto;
+}
+
+
+
 
 
 
