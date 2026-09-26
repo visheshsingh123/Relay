@@ -1,17 +1,12 @@
 <IfModule mod_rewrite.c>
   RewriteEngine On
-  RewriteBase /relay/
 
-  # Redirect explicit .html requests to clean URLs (301 Permanent Redirect)
-  RewriteCond %{THE_REQUEST} \s/relay/([^.\s]+)\.html[\s?] [NC]
-  RewriteRule ^ %1 [R=301,L]
-
-  # If requested file or directory exists, serve directly
+  # Do not rewrite if real file or directory exists
   RewriteCond %{REQUEST_FILENAME} -f [OR]
   RewriteCond %{REQUEST_FILENAME} -d
   RewriteRule ^ - [L]
 
-  # Map clean URLs to .html files internally
+  # Map clean URLs to .html files internally (e.g. /login -> /login.html)
   RewriteCond %{REQUEST_FILENAME}.html -f
   RewriteRule ^(.*)$ $1.html [L]
 </IfModule>

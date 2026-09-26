@@ -3819,58 +3819,123 @@ Do NOT use robotic headers like "Mood & Tone:" or numbered bullet points. Keep i
       }
   }
 
-  usernameForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    const val = onboardingUsername.value.trim().toLowerCase();
-    if (!/^[a-z][a-z0-9_]{2,19}$/.test(val)) {
-      onboardingUsernameError.textContent = "3-20 characters: letters, numbers, underscores.";
-      onboardingUsernameError.hidden = false;
-      return;
-    }
+  let usernameCheckDebounce = null;
+  if (onboardingUsername) {
+    onboardingUsername.addEventListener("input", () => {
+      const val = onboardingUsername.value.trim().toLowerCase();
+      if (usernameCheckDebounce) clearTimeout(usernameCheckDebounce);
 
-    onboardingUsernameSubmit.disabled = true;
-    onboardingUsernameSubmit.querySelector(".auth-submit__label").textContent = "Saving...";
-
-    try {
-      const usersRef = collection(db, "users");
-      const q = query(usersRef, where("username", "==", val), limit(1));
-      const snap = await getDocs(q);
-      
-      if (!snap.empty) {
-        onboardingUsernameError.textContent = "That username is already taken.";
-        onboardingUsernameError.hidden = false;
-        onboardingUsernameSubmit.disabled = false;
-        onboardingUsernameSubmit.querySelector(".auth-submit__label").textContent = "Continue";
+      if (!val) {
+        onboardingUsernameError.hidden = true;
+        if (onboardingUsernameSubmit) onboardingUsernameSubmit.disabled = true;
         return;
       }
 
-      await setDoc(doc(db, "users", firebaseUser.uid), {
-        uid: firebaseUser.uid,
-        name: firebaseUser.displayName || firebaseUser.email.split("@")[0],
-        email: firebaseUser.email,
-        username: val,
-        createdAt: new Date().toISOString()
-      }, { merge: true });
+      if (!/^[a-z][a-z0-9_]{2,19}$/.test(val)) {
+        onboardingUsernameError.textContent = "3-20 chars: lower letters, numbers, underscores (starts with a letter).";
+        onboardingUsernameError.style.color = "var(--danger, #ff4d4d)";
+        onboardingUsernameError.hidden = false;
+        if (onboardingUsernameSubmit) onboardingUsernameSubmit.disabled = true;
+        return;
+      }
 
-      localStorage.setItem("relay_username", val);
-      usernameModal.setAttribute('hidden', 'true');
-      
-      // Update profile cache and init
-      firebaseProfile = { ...firebaseProfile, username: val, name: firebaseUser.displayName || firebaseUser.email.split("@")[0] };
-      updateWelcomeTitles();
-      myAvatarInitials.textContent = getInitials(firebaseProfile.name);
-      myProfileBtn.setAttribute("aria-label", `Your profile, ${firebaseProfile.name}, @${firebaseProfile.username}`);
-      myProfileBtn.title = `@${firebaseProfile.username}`;
-      
-      initializeApp();
-      
-    } catch (err) {
-      console.error(err);
-      onboardingUsernameError.textContent = "Something went wrong. Try again.";
+      onboardingUsernameError.textContent = "Checking availability…";
+      onboardingUsernameError.style.color = "var(--text-muted, #94a3b8)";
       onboardingUsernameError.hidden = false;
-      onboardingUsernameSubmit.disabled = false;
-      onboardingUsernameSubmit.querySelector(".auth-submit__label").textContent = "Continue";
-    }
-  });
+      if (onboardingUsernameSubmit) onboardingUsernameSubmit.disabled = true;
+
+      usernameCheckDebounce = setTimeout(async () => {
+        try {
+          const usersRef = collection(db, "users");
+          const q = query(usersRef, where("username", "==", val), limit(1));
+          const snap = await getDocs(q);
+
+          if (onboardingUsername.value.trim().toLowerCase() !== val) return;
+
+          if (!snap.empty) {
+            onboardingUsernameError.textContent = "That username is already taken.";
+            onboardingUsernameError.style.color = "var(--danger, #ff4d4d)";
+            onboardingUsernameError.hidden = false;
+            if (onboardingUsernameSubmit) onboardingUsernameSubmit.disabled = true;
+          } else {
+            onboardingUsernameError.textContent = "Username is available!";
+            onboardingUsernameError.style.color = "#2ed573";
+            onboardingUsernameError.hidden = false;
+            if (onboardingUsernameSubmit) onboardingUsernameSubmit.disabled = false;
+          }
+        } catch (err) {
+          console.error("Error checking username availability:", err);
+        }
+      }, 300);
+    });
+  }
+
+  if (usernameForm) {
+    usernameForm.addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const val = onboardingUsername.value.trim().toLowerCase();
+      if (!/^[a-z][a-z0-9_]{2,19}$/.test(val)) {
+        onboardingUsernameError.textContent = "3-20 chars: lower letters, numbers, underscores (starts with a letter).";
+        onboardingUsernameError.style.color = "var(--danger, #ff4d4d)";
+        onboardingUsernameError.hidden = false;
+        return;
+      }
+
+      if (onboardingUsernameSubmit) {
+        onboardingUsernameSubmit.disabled = true;
+        const label = onboardingUsernameSubmit.querySelector(".auth-submit__label");
+        if (label) label.textContent = "Saving…";
+      }
+
+      try {
+        const usersRef = collection(db, "users");
+        const q = query(usersRef, where("username", "==", val), limit(1));
+        const snap = await getDocs(q);
+        
+        if (!snap.empty) {
+          onboardingUsernameError.textContent = "That username is already taken.";
+          onboardingUsernameError.style.color = "var(--danger, #ff4d4d)";
+          onboardingUsernameError.hidden = false;
+          if (onboardingUsernameSubmit) {
+            onboardingUsernameSubmit.disabled = true;
+            const label = onboardingUsernameSubmit.querySelector(".auth-submit__label");
+            if (label) label.textContent = "Continue";
+          }
+          return;
+        }
+
+        await setDoc(doc(db, "users", firebaseUser.uid), {
+          uid: firebaseUser.uid,
+          name: firebaseUser.displayName || firebaseUser.email.split("@")[0],
+          email: firebaseUser.email,
+          username: val,
+          createdAt: new Date().toISOString()
+        }, { merge: true });
+
+        localStorage.setItem("relay_username", val);
+        usernameModal.setAttribute('hidden', 'true');
+        
+        // Update profile cache and init
+        firebaseProfile = { ...firebaseProfile, username: val, name: firebaseUser.displayName || firebaseUser.email.split("@")[0] };
+        updateWelcomeTitles();
+        myAvatarInitials.textContent = getInitials(firebaseProfile.name);
+        myProfileBtn.setAttribute("aria-label", `Your profile, ${firebaseProfile.name}, @${firebaseProfile.username}`);
+        myProfileBtn.title = `@${firebaseProfile.username}`;
+        
+        initializeApp();
+        
+      } catch (err) {
+        console.error(err);
+        onboardingUsernameError.textContent = "Something went wrong. Try again.";
+        onboardingUsernameError.style.color = "var(--danger, #ff4d4d)";
+        onboardingUsernameError.hidden = false;
+        if (onboardingUsernameSubmit) {
+          onboardingUsernameSubmit.disabled = false;
+          const label = onboardingUsernameSubmit.querySelector(".auth-submit__label");
+          if (label) label.textContent = "Continue";
+        }
+      }
+    });
+  }
 
 })();
