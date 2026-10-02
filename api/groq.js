@@ -7,14 +7,14 @@ function getAllApiKeys() {
   const addKeys = (str) => {
     if (!str || typeof str !== "string") return;
     str.split(/[\s,\n]+/).forEach((k) => {
-      const trimmed = k.trim();
+      const trimmed = k.trim().replace(/^["']|["']$/g, "");
       if (trimmed && !keys.includes(trimmed)) {
         keys.push(trimmed);
       }
     });
   };
 
-  // 1. Explicit environment variables as named in Vercel
+  // 1. Explicit environment variables as named in Vercel settings
   addKeys(process.env.GROQ_API_KEY);
   addKeys(process.env.GROQ_API_KEY1);
   addKeys(process.env.GROQ_API_KEY2);
@@ -54,13 +54,23 @@ export default async function handler(req, res) {
 
   const apiKeys = getAllApiKeys();
   if (apiKeys.length === 0) {
+    console.error("[Vercel Groq] No API keys found in environment variables.");
     return res.status(500).json({
-      error: "No GROQ API key found in Vercel environment variables (GROQ_API_KEY, GROQ_API_KEY1, GROQ_API_KEY2)."
+      error: "No GROQ API key found in Vercel environment variables. Please check your Vercel project settings."
     });
   }
 
   try {
-    const { messages, model = "llama-3.3-70b-versatile", temperature = 0.7, max_tokens = 1024 } = req.body || {};
+    let bodyData = req.body || {};
+    if (typeof bodyData === "string") {
+      try {
+        bodyData = JSON.parse(bodyData);
+      } catch (_) {
+        bodyData = {};
+      }
+    }
+
+    const { messages, model = "llama-3.3-70b-versatile", temperature = 0.7, max_tokens = 1024 } = bodyData;
 
     if (!messages || !Array.isArray(messages)) {
       return res.status(400).json({ error: "Invalid request. 'messages' array is required." });
@@ -68,10 +78,10 @@ export default async function handler(req, res) {
 
     const GROQ_MODELS = [
       model,
-      "qwen/qwen3.6-27b",
       "llama-3.3-70b-versatile",
       "llama-3.1-8b-instant",
-      "groq/compound"
+      "deepseek-r1-distill-llama-70b",
+      "mixtral-8x7b-32768"
     ];
 
     const targetModels = Array.from(new Set(GROQ_MODELS));
@@ -100,11 +110,11 @@ export default async function handler(req, res) {
             return res.status(200).json(data);
           } else {
             const errData = await groqResponse.json().catch(() => ({}));
-            lastError = errData;
-            console.warn(`[Vercel Groq] Key (ending ...${key.slice(-4)}) on model ${targetModel} status ${groqResponse.status}:`, errData);
+            lastError = { status: groqResponse.status, data: errData, keyEnd: key.slice(-4), model: targetModel };
+            console.warn(`[Vercel Groq] Key (...${key.slice(-4)}) on model ${targetModel} status ${groqResponse.status}:`, errData);
           }
         } catch (err) {
-          lastError = err.message;
+          lastError = { error: err.message, keyEnd: key.slice(-4), model: targetModel };
         }
       }
     }
