@@ -2655,10 +2655,10 @@ import {
 
   const DEFAULT_GROQ_KEY = "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";
   const GROQ_MODELS = [
-    "qwen/qwen3.6-27b",
     "llama-3.3-70b-versatile",
     "llama-3.1-8b-instant",
-    "groq/compound"
+    "deepseek-r1-distill-llama-70b",
+    "mixtral-8x7b-32768"
   ];
 
   function cleanAIResponse(text) {
@@ -2756,9 +2756,12 @@ import {
         const data = await serverlessRes.json();
         const content = data.choices?.[0]?.message?.content;
         if (content) return cleanAIResponse(content);
+      } else {
+        const errJson = await serverlessRes.json().catch(() => ({}));
+        console.warn(`[Relay AI] /api/groq returned ${serverlessRes.status}:`, errJson);
       }
-    } catch (_) {
-      // Not hosted on Vercel or running locally on plain static server — fallback to client-side key
+    } catch (e) {
+      console.warn("[Relay AI] Serverless /api/groq fetch exception:", e);
     }
 
     // 2. Direct client-side Groq API fallback
